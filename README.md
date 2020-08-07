@@ -39,22 +39,22 @@ check following URL:
     if ssh is registered:
     ```
     $ cd ~
-    $ git clone git@git.esslab.jp:tomo/sumo.git
+    $ git clone git@git.esslab.jp:tomo/gym-sumo.git
     ```
     if ssh is not registered:
     ```
     $ cd ~
-    $ git clone https://git.esslab.jp/tomo/sumo.git
+    $ git clone https://git.esslab.jp/tomo/gym-sumo.git
     ```
 1. install requirement packages
     ```
-    $ cd ~/sumo/mytest/shinjuku/gym-sumo
+    $ cd ~/gym-sumo/gym-sumo
     $ bash install.sh
     ```
 
 ## Usage gym environment
 you can run the test code by following:
 ```
-$ cd ~/sumo/mytest/shinjuku
+$ cd ~/gym-sumo
 $ python sampletraci.py
 ```
