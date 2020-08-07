@@ -1,0 +1,10 @@
+torch==1.5.0+cpu
+torchvision==0.6.0+cpu
+torch-scatter==latest+cpu
+torch-sparse==latest+cpu
+torch-cluster==latest+cpu
+torch-spline-conv==latest+cpu
+torch-geometric
+matplotlib==3.3.0
+numpy==1.19.1
+gym==0.17.2

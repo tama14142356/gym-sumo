@@ -1,0 +1,9 @@
+# python cache
+*__pycache__*
+
+# IDE project files
+/.settings
+/.cproject
+/.project
+/.pydevproject
+/.vs*

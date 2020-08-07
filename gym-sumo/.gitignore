@@ -1,0 +1,5 @@
+# gym requirement
+*.egg-info
+
+# python cache
+*__pycache__*
