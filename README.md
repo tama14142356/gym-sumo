@@ -5,7 +5,7 @@
 ## 必須システム要件
 OS : Linux, Windows7以上, macOS  
 (ただし、動作確認したのはUbuntu18.04LTSのみ)  
-ソフトウェア : SUMO, python3
+ソフトウェア : SUMO, python3  
 おすすめのpython環境 : anaconda を使ったpython3.7
 
 ## SUMO インストール方法
@@ -36,7 +36,7 @@ Linux (Ubuntu):
 [Installing](https://sumo.dlr.de/docs/Installing.html)
 
 ## install gym environment
-1. 前のセクションのインストール法歩を見て、SUMOをインストールする。
+1. 前のセクションのインストール方法を見て、SUMOをインストールする。
 1. gym環境のソースコードを取得する  
     もし、gitにssh登録しているなら:
     ```
