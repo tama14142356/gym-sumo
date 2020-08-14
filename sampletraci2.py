@@ -6,8 +6,8 @@ import random
 DECELERATION_RATE = 0.9
 DECELERATION_DURATION = 3
 g = Graph('map/testmap/osm.net.xml')
-print(g.graph)
-print(len(g.normalEdgeConnection), g.normalEdgeConnection)
+# print(g.graph)
+# print(len(g.normalEdgeConnection), g.normalEdgeConnection)
 route = {}
 def isNewRoute(fromnodeindex, tonodeindex):
     if fromnodeindex not in route:
@@ -56,6 +56,7 @@ def addCar(carnum):
         traci.vehicle.add(vehID, routeID)
         #set speed mode
         traci.vehicle.setSpeedMode(vehID, 0)
+# def isStreet(vehID):
 
 def main(sumocfg):
     sumoCmd = ['sumo-gui', '-c', sumocfg]
@@ -104,10 +105,12 @@ def main(sumocfg):
         signal = traci.vehicle.getSignals(v)
         # slow down at sag
         current_edge = traci.vehicle.getRoadID(v)
+        curlane = traci.vehicle.getLaneID(v)
+        lanelen = traci.lane.getLength(curlane)
         pos = traci.vehicle.getLanePosition(v)
         dis = traci.vehicle.getDistance(v)
         param = traci.edge.getParameter(current_edge, "from")
-        print(v, "speed", speed, "edge", current_edge, "siganl", signal, "pos", pos, "dis", dis, step)
+        print(v, "speed", speed, "edge", current_edge, "siganl", signal, "pos", pos, "len", lanelen, "dis", dis, step)
     while step < 60 * 60 * 24: # 1day
         traci.simulationStep()
 
@@ -123,20 +126,25 @@ def main(sumocfg):
             traci.close()
             break
         for v in v_list:
-            if step == 0:
-                traci.vehicle.setSpeed(v, 10)
-            if step == 5:
-                traci.vehicle.setSpeed(v, 15)
+            # if step == 0:
+            #     traci.vehicle.setSpeed(v, 10)
+            if step == 6:
+                traci.vehicle.slowDown(v, 10, int(dt*10))
+            # if step == 5:
+            #     traci.vehicle.setSpeed(v, 15)
             # if step >= 6:
             #     traci.vehicle.setSignals(v, 1)
             speed = traci.vehicle.getSpeed(v)
             signal = traci.vehicle.getSignals(v)
-            # slow down at sag
+            # if step == 5:
+            #     traci.vehicle.setAn
             current_edge = traci.vehicle.getRoadID(v)
             pos = traci.vehicle.getLanePosition(v)
             dis = traci.vehicle.getDistance(v)
+            acc = traci.vehicle.getAccel(v)
+            acc2 = traci.vehicle.getAcceleration(v)
             param = traci.edge.getParameter(current_edge, "from")
-            print(v, "speed", speed, "edge", current_edge, "siganl", signal, "pos", pos, "dis", dis, step)
+            print(v, "speed", speed, "edge", current_edge, "siganl", signal, "pos", pos, "dis", dis, "acc", acc, "acc2", acc2, step)
         step += 1
     traci.close()
 
