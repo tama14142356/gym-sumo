@@ -66,6 +66,7 @@ class SumoEnv(gym.Env):
 
     def step(self, action):
         traci.simulationStep()
+        # calculate current step action
         v_list = traci.vehicle.getIDList()
         for v in v_list:
             index = int(v[3:])
@@ -73,7 +74,9 @@ class SumoEnv(gym.Env):
             curspeed = prespeed + self.previousAccel[index]
             traci.vehicle.setSpeed(v, curspeed)
             self.currentSpeed[index] = curspeed
+        # determine next step action
         self.takeAction(action)
+
 
     def reset(self, mode='gui'):
         # traci start
@@ -92,8 +95,16 @@ class SumoEnv(gym.Env):
 
     def takeAction(self, action):
         for i, act in enumerate(action):
-            futureAccel = act[1]
             vehID = 'veh{}'.format(i)
+            maxaccel = traci.vehicle.getAccel(vehID)
+            maxdeccel = traci.vehicle.getDecel(vehID)
+            futureAccel = 0.0
+            if act[1] >= 0:
+                # accelreation
+                futureAccel = maxaccel * act[1]
+            else:
+                # decceleration
+                futureAccel = maxdeccel * act[1]
             curspeed = self.currentSpeed[i]
             futureSpeed = curspeed + futureAccel
             self.previousAccel[i] = futureAccel
