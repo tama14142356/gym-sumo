@@ -14,19 +14,124 @@ class Graph:
     def __init__(self, filepath, isNode_attr=True, isEdge_attr=True):
         self.filepath = filepath
         self.nodeIDList = [] # list of node id
-        self.nodeIDdict = {} # dictionary: {'nodeID': nodeindex}
-        self.normalEdgeIDList = [] # list of normal edgeID 
-        self.normalEdgeIDdict = {} # dictionary: {'edgeID': edgeindex}
-        self.normalEdgedict = {} # dictionary: {'edgeID':(fromnodeindex, tonodeindex)}
-        self.edgeIDList = [] # list of edgeID
+        self.EdgeNodedict = {} # dictionary: {'edgeID':(fromnodeindex, tonodeindex)}
+        self.edgeIDList = [] # list of edgeID including normal, internal
+        # self.nodeIDdict = {} # dictionary: {'nodeID': nodeindex}
+        # self.normalEdgeIDdict = {} # dictionary: {'edgeID': edgeindex}
         self.edges = None
         self.num = defaultdict(int)
         self.isEdge_attr = isEdge_attr
         self.isNode_attr = isNode_attr
+        self.isDirection = True
         # create graph
         self.defineGraph()
         self.gettuplePos(self.graph)
     
+    def getEdgeIndex(self, edgeID, isNormal=True):
+        index = -1
+        if edgeID in self.edgeIDList:
+            index = self.edgeIDList.index(edgeID)
+        if isNormal:
+            if index >= self.num['edge_normal']:
+                index = -1
+        return index
+    
+    def getEdgeID(self, edgeIndex, isNormal=True):
+        if edgeIndex >= len(self.edgeIDList):
+            return None
+        if isNormal:
+            if edgeIndex >= self.num['edge_normal']:
+                return None
+        return self.edgeIDList[edgeIndex]    
+
+    def getNodeTuple(self, normalEdgeID):
+        if normalEdgeID in self.EdgeNodedict:
+            return self.EdgeNodedict[normalEdgeID]
+        return (-1, -1)
+
+    def getFromNodeIndex(self, normalEdgeID):
+        tempNodeTuple = self.getNodeTuple(normalEdgeID)
+        return tempNodeTuple[0]
+
+    def getToNodeIndex(self, normalEdgeID):
+        tempNodeTuple = self.getNodeTuple(normalEdgeID)
+        return tempNodeTuple[1]
+
+    def getFromNodeID(self, normalEdgeID):
+        
+
+    def getToNodeID(self, normalEdgeID):
+        nodeIndex = self.getToNodeIndex(normalEdgeID)
+        return self.getNodeID(nodeIndex)
+
+    def getNodeID(self, nodeIndex=None, normalEdgeID=None, isFrom=True):
+        nodeID = None
+        if nodeIndex is None:
+            if isFrom:
+                nodeIndex = self.getFromNodeIndex(normalEdgeID)
+                nodeID = self.getNodeID(nodeIndex)
+        else:
+            if nodeIndex < len(self.nodeIDList):
+                nodeID = self.nodeIDList[nodeNum]
+        
+        return nodeID
+
+    def getNodeIndex(self, nodeID):
+        if nodeID in self.nodeIDList:
+            # return self.nodeIDdict[nodeID]
+            return self.nodeIDList.index(nodeID)
+        return -1
+
+    def calcDistance(self, fromPos, toPos):
+        return float(np.sqrt((toPos[0] - fromPos[0])**2 + (toPos[1] - fromPos[1])**2))
+    
+    def getEdges(self):
+        if self.edges is not None:
+            return self.edges
+        self.nxg = to_networkx(self.graph)
+        tmpList = list(self.nxg.edges)
+        self.edges = []
+        for i, tmp in enumerate(tmpList):
+            edge = [list(self.graph.edge_attr[i].numpy()), list(tmp)]
+            self.edges.append(edge)
+        return self.edges
+    
+    def getNodeIDfromEdge(self, edgeID):
+        edge = edgeID[1:]
+        length = len(edge)
+        index = length - 1
+        for i in range(length - 1, 0, -1):
+            index = i
+            if edge[i] == '_':
+                break
+        nodeID = edge[:index]
+        return nodeID
+    
+    def getEdgeIDfromNode(self, nodeID, fromLane):
+        edgeID = ':' + nodeID + '_{}'.format(fromLane)
+        return edgeID
+
+    def getNextEdges(self, curedgeID, curLaneIndex, direction):
+        tmp = self.normalEdgeConnection
+        nextEdges = []
+        if self.isDirection:
+            fromEdgeIndex = self.getEdgeIndex(curedgeID)
+            if fromEdgeIndex < len(tmp):
+                if curLaneIndex in tmp[fromEdgeIndex]:
+                    if direction in tmp[fromEdgeIndex][curLaneIndex]:
+                        nextEdges = tmp[fromEdgeIndex][curLaneIndex][direction][0]
+        return nextEdges
+
+    def getNextEdgeID(self, curedgeID, curLaneIndex, direction, isNormal=True):
+        nextEdges = self.getNextEdges(curedgeID, curLaneIndex, direction)
+        edgeID = None
+        if len(nextEdges) > 0:
+            if isNormal:
+                edgeID = nextEdges['to']
+            else:
+                edgeID = nextEdges['via']
+        return edgeID    
+
     def setNormalEdgeConnection(self, root=None):
         """
         this function generate connection list
@@ -37,65 +142,54 @@ class Graph:
         root is not None :
             self.normalEdgeConnection:
                 dictionary list of edgeList which connects edgeindex
-                    [fromedgeindex] = {'fromlane': {'direction':[toedgelist]}}
+                    [fromEdgeIndex] = {'fromLane': {'direction':[{'to':toEdgeIndex, 'via': viaEdgeID}]}}
         """
         if root is not None:
             num_edges = self.num['edge_normal']
             self.normalEdgeConnection = [{} for i in range(num_edges)]
             connectionList = self.getEdgeConnection(root)
             for connect in connectionList:
-                fromedge = self.normalEdgeIDdict[connect['from']]
-                fromlane = connect['fromLane']
-                toedge = self.normalEdgeIDdict[connect['to']]
+                fromEdgeIndex = self.getEdgeIndex(connect['from'])
+                fromLaneIndex = connect['fromLane']
+                toEdgeID = connect['to']
                 # tolane = connect['toLane']
                 direction = connect['dir']
+                viaEdgeID = connect['via']
                 tmp = {}
-                tmplist = []
-                if fromlane in self.normalEdgeConnection[fromedge]:
-                    tmp = self.normalEdgeConnection[fromedge][fromlane]
+                tmpList = []
+                if fromLaneIndex in self.normalEdgeConnection[fromEdgeIndex]:
+                    tmp = self.normalEdgeConnection[fromEdgeIndex][fromLaneIndex]
                     if direction in tmp:
-                        tmplist = tmp[direction]
-                tmplist.append(toedge)
-                tmp[direction] = tmplist
-                self.normalEdgeConnection[fromedge][fromlane] = tmp
+                        tmpList = tmp[direction]
+                toEdge = {'to': toEdgeID, 'via': viaEdgeID}
+                tmpList.append(toEdge)
+                tmp[direction] = tmpList
+                self.normalEdgeConnection[fromEdgeIndex][fromLaneIndex] = tmp
         else:
+            self.isDirection = False
             num_edges = self.graph.num_edges
             self.normalEdgeConnection = [[] * 1 for i in range(num_edges)]
             edgeList = self.graph.edge_index.numpy()
             for i in range(num_edges):
-                fromedge = edgeList[0][i]
-                toedge = edgeList[1][i]
-                if toedge not in self.normalEdgeConnection[fromedge]:
-                    self.normalEdgeConnection[fromedge].append(toedge)
-
-    def calcDistance(self, fromPos, toPos):
-        return float(np.sqrt((toPos[0] - fromPos[0])**2 + (toPos[1] - fromPos[1])**2))
-
-    def internalEdgeToNode(self, edgeID):
-        edge = edgeID[1:]
-        length = len(edge)
-        index = length - 1
-        for i in range(length - 1, 0, -1):
-            index = i
-            if edge[i] == '_':
-                break
-        nodeID = edge[:index]
-        return nodeID
+                fromEdgeIndex = edgeList[0][i]
+                toEdge = edgeList[1][i]
+                if toEdge not in self.normalEdgeConnection[fromEdgeIndex]:
+                    self.normalEdgeConnection[fromEdgeIndex].append(toEdge)
 
     # add vehicle as node
     def addNode(self, vehID, curedgeID, vehinfo):
         isNode = False
         # add edge to graph
         tmp = self.graph.edge_index.numpy()
-        if curedgeID not in self.normalEdgedict:
+        if curedgeID not in self.EdgeNodedict:
             isNode = True
-            curnodeID = self.internalEdgeToNode(curedgeID)
-            nodeindex = self.nodeIDdict[curnodeID]
+            curNodeID = self.getNodeIDfromEdge(curedgeID)
+            nodeIndex = self.getNodeIndex(curNodeID)
         else:
-            edge = self.normalEdgedict[curedgeID]
+            edge = self.EdgeNodedict[curedgeID]
             # add vehicleID as nodeID
-            self.addnodeID(vehID)
-            src = np.append(tmp[0], self.nodeIDdict[vehID])
+            self.addNodeID(vehID)
+            src = np.append(tmp[0], self.getNodeIndex(vehID))
             dst = np.append(tmp[1], edge[1])
             tmp = np.array([src, dst])
         edge_index = torch.tensor(tmp,dtype=torch.long)
@@ -112,7 +206,7 @@ class Graph:
         else:
             tmp = np.zeros(self.graph.num_nodes, dtype=float)
         if isNode:
-            tmp[nodeindex] = vehinfo['speed']
+            tmp[nodeIndex] = vehinfo['speed']
         else:
             tmp = np.append(tmp, [vehinfo['speed']], axis=0)
         x = torch.tensor(tmp, dtype=torch.float)
@@ -120,7 +214,7 @@ class Graph:
         if self.isEdge_attr:
             tmp = self.graph.edge_attr.numpy()
             if not isNode:
-                edgenum = self.normalEdgeIDdict[curedgeID]
+                edgenum = self.getEdgeIndex(curedgeID)
                 attrib = [tmp[edgenum][0], distance]
                 tmp = np.append(tmp, [attrib], axis=0)
             edge_attr = torch.tensor(tmp, dtype=torch.float)
@@ -128,27 +222,10 @@ class Graph:
         else:
             self.graph = Data(x = x, edge_index=edge_index, pos=pos)
 
-    def getnodeID(self, nodeNum):
-        return self.nodeIDList[nodeNum]
-
-    def getnodeNum(self, nodeID):
-        return self.nodeIDdict[nodeID]
-
-    def getEdges(self):
-        if self.edges is not None:
-            return self.edges
-        self.nxg = to_networkx(self.graph)
-        tmplist = list(self.nxg.edges)
-        self.edges = []
-        for i, tmp in enumerate(tmplist):
-            edge = [list(self.graph.edge_attr[i].numpy()), list(tmp)]
-            self.edges.append(edge)
-        return self.edges
-
-    def addnodeID(self, nodeID):
-        if nodeID not in self.nodeIDdict:
-            value = len(self.nodeIDList)
-            self.nodeIDdict[nodeID] = value
+    def addNodeID(self, nodeID):
+        if nodeID not in self.nodeIDList:
+            # value = len(self.nodeIDList)
+            # self.nodeIDdict[nodeID] = value
             self.nodeIDList.append(nodeID)
     
     def getFeatureNode(self, attrib):
@@ -156,21 +233,21 @@ class Graph:
         return [speed]
     
     def getPosNode(self, attrib):
-        self.addnodeID(attrib['id'])
+        self.addNodeID(attrib['id'])
         pos = [float(attrib['x']), float(attrib['y'])]
         return pos
 
     def generateNode(self, root):
-        poslist = []
-        xlist = []
+        posList = []
+        xList = []
         for child in root:
             if child.tag == 'junction':
                 self.num['junction'] += 1
                 if child.attrib['type'] is None or child.attrib['type'] != 'internal':
-                    poslist.append(self.getPosNode(child.attrib))
-                    xlist.append(self.getFeatureNode(child.attrib))
-        x = torch.tensor(xlist, dtype=torch.float)
-        pos = torch.tensor(poslist, dtype=torch.float)
+                    posList.append(self.getPosNode(child.attrib))
+                    xList.append(self.getFeatureNode(child.attrib))
+        x = torch.tensor(xList, dtype=torch.float)
+        pos = torch.tensor(posList, dtype=torch.float)
         return pos, x
 
     def getFeatureEdge(self, attrib):
@@ -190,45 +267,51 @@ class Graph:
         return : long, long (nodeID hash code)
         """
         # get nodeID(string)
-        fromnodeID = attrib['from']
-        tonodeID = attrib['to']
+        fromNodeID = attrib['from']
+        toNodeID = attrib['to']
 
         # nodeID(string) -> torch.long
-        self.addnodeID(fromnodeID)
-        self.addnodeID(tonodeID)
+        self.addNodeID(fromNodeID)
+        self.addNodeID(toNodeID)
 
         # add edge, node to graph
-        fromnodeNumber = self.nodeIDdict[fromnodeID]
-        tonodeNumber = self.nodeIDdict[tonodeID]
-        self.normalEdgedict[attrib['id']] = (fromnodeNumber, tonodeNumber)
-        return fromnodeNumber, tonodeNumber
+        fromNodeIndex = self.getNodeIndex(fromNodeID)
+        toNodeIndex = self.getNodeIndex(toNodeID)
+        self.EdgeNodedict[attrib['id']] = (fromNodeIndex, toNodeIndex)
+        return fromNodeIndex, toNodeIndex
     
     def generateEdge(self, root):
-        fromlist = []
-        tolist = []
-        xlist = []
+        fromList = []
+        toList = []
+        xList = []
+        edgeIDList = []
+        normalEdgeIDList = []
         for child in root:
             if child.tag == 'edge':
                 self.num['edge'] += 1
-                self.edgeIDList.append(child.attrib['id'])
                 # avoid internel edges
+                if 'function' in child.attrib:
+                    if child.attrib['function'] == 'internal':
+                        if child.attrib['id'] not in edgeIDList:
+                            edgeIDList.append(child.attrib['id'])
+                        continue
                 if 'from' in child.attrib:
-                    if 'function' in child.attrib:
-                        if child.attrib['function'] == 'internal':
-                            continue
-                    self.normalEdgeIDList.append(child.attrib['id'])
-                    self.normalEdgeIDdict[child.attrib['id']] = self.num['edge_normal']
-                    self.num['edge_normal'] += 1
+                    if child.attrib['id'] not in normalEdgeIDList:
+                        normalEdgeIDList.append(child.attrib['id'])
+                        # self.normalEdgeIDdict[child.attrib['id']] = self.num['edge_normal']
+                        self.num['edge_normal'] += 1
                     # generate edge_index
-                    fromnodeNumber, tonodeNumber = self.convNodeLong(child.attrib)
-                    fromlist.append(fromnodeNumber)
-                    tolist.append(tonodeNumber)
+                    fromNodeIndex, toNodeIndex = self.convNodeLong(child.attrib)
+                    fromList.append(fromNodeIndex)
+                    toList.append(toNodeIndex)
                     # get feature of edge(length)
                     edgespeed, edgelength = self.getFeatureEdge(child)
                     x = [edgespeed, edgelength]
-                    xlist.append(x)
-        edge_attr = torch.tensor(xlist, dtype=torch.float)
-        edge_index = torch.tensor([fromlist, tolist], dtype=torch.long)
+                    xList.append(x)
+        normalEdgeIDList[len(normalEdgeIDList):len(edgeIDList)] = edgeIDList
+        self.edgeIDList = normalEdgeIDList
+        edge_attr = torch.tensor(xList, dtype=torch.float)
+        edge_index = torch.tensor([fromList, toList], dtype=torch.long)
         return edge_index, edge_attr
 
     def xmlParse(self):
