@@ -1,14 +1,17 @@
 import gym
-from gym import error, spaces, utils
-from gym.utils import seeding
+# from gym import error, spaces, utils
+from gym import spaces
+# from gym.utils import seeding
 
-import os, sys
+import os
+import sys
 import traci
 
-import random
 import numpy as np
 
 from gym_sumo.envs._graph import Graph
+from gym_sumo.envs._myvehicle import CurVehicle
+from gym_sumo.envs._util import randomTuple
 
 # action
 LEFT = 0
@@ -39,156 +42,102 @@ VEH_SIGNALS = {
     13: "VEH_SIGNAL_EMERGENCY_YELLOW",
 }
 
+
 class SumoEnv(gym.Env):
     metadata = {'render.modes': ['human']}
     sumoMap = os.path.join(os.path.dirname(__file__), 'sumo_configs/waseda')
-    def __init__(self, isgraph = True, filepath = sumoMap, carnum = 100, mode='gui', simulation_end=36000):
+
+    def __init__(self, isgraph=True, filepath=sumoMap, carnum=100, mode='gui',
+                 step_length=0.01):
         self.mappath = filepath
         self.netpath = filepath + "/osm.net.xml"
         self.sumocfg = self.mappath + "/osm.sumocfg"
-        self.carnum = carnum
+        self.__carnum = carnum
+        self.__vehIDList = []
+        self.__stepLength = step_length
         self.isgraph = isgraph
-        self.previousAccel = [0.0] * carnum
-        self.currentSpeed = [0.0] * carnum
         self.graph = Graph(self.netpath)
-        self.initGraph = self.graph.graph
+        self.initGraph = self.graph.getGraph()
         if not self.isgraph:
-            self.initGraph()
+            self.initiallizeGraph()
         self.routeEdge = {}
         self.observation = self.reset()
+        if 'curVehicle' not in dir(self):
+            self.curVehicle = CurVehicle(self.__vehIDList,
+                                         self.__stepLength, self.graph)
         # 5action and accel, brake
         self.action_space = []
         for i in range(carnum):
-            self.action_space.append(spaces.Tuple((spaces.Discrete(5), spaces.Box(low=np.array([-1.0], dtype=np.float32), high=np.array([1.0], dtype=np.float32), dtype=np.float32))))
-        self.observation_space = spaces.Box(low=1, high=self.graph.graph.num_edges, shape=(np.shape(self.observation)))
-        # self.routes = {}
-        self.step = 0
-
+            self.action_space.append(
+                spaces.Tuple(
+                    (spaces.Discrete(5),
+                     spaces.Box(low=np.array([-1.0], dtype=np.float32),
+                                high=np.array([1.0], dtype=np.float32),
+                                dtype=np.float32))))
+        self.observation_space = spaces.Box(low=1,
+                                            high=self.initGraph.num_edges,
+                                            shape=(np.shape(self.observation)))
+    
     def step(self, action):
-        traci.simulationStep()
-        # calculate current step action
+        # calculate vehicle info in current step
         v_list = traci.vehicle.getIDList()
+        self.curVehicle.calcCurInfo()
         for v in v_list:
-            index = int(v[3:])
-            prespeed = traci.vehicle.getSpeed(v)
-            curspeed = prespeed + self.previousAccel[index]
-            traci.vehicle.setSpeed(v, curspeed)
-            self.currentSpeed[index] = curspeed
+            curSpeed = self.curVehicle.getCurSpeed(v)
+            traci.vehicle.setSpeed(v, curSpeed)
         # determine next step action
-        self.takeAction(action)
-
+        for i, act in enumerate(action):
+            self.__takeAction(i, act)
+        traci.simulationStep()
+        self.curVehicle.setInValid()
+        observation = self.observation()
+        reward = self.reward()
+        return observation, reward
 
     def reset(self, mode='gui'):
-        # traci start
-        self.initSimulator()
-        # init simulate
-        traci.simulationStep()
+        # reset
+        self.close()
+        # traci start & init simulate
+        self.initSimulator(mode, step_length=self.__stepLength)
         observation = self.observation()
+        traci.simulationStep()
+        self.curVehicle.setInValid()
         return observation
 
     def render(self, mode='human'):
-        pass
+        print(self.observation)
 
     def close(self):
-        traci.close()
-        sys.stdout.flush()
-
-    def takeAction(self, action):
-        for i, act in enumerate(action):
-            vehID = 'veh{}'.format(i)
-            maxaccel = traci.vehicle.getAccel(vehID)
-            maxdeccel = traci.vehicle.getDecel(vehID)
-            futureAccel = 0.0
-            if act[1] >= 0:
-                # accelreation
-                futureAccel = maxaccel * act[1]
-            else:
-                # decceleration
-                futureAccel = maxdeccel * act[1]
-            curspeed = self.currentSpeed[i]
-            futureSpeed = curspeed + futureAccel
-            self.previousAccel[i] = futureAccel
-            if futureSpeed < 0:
-                futureSpeed = 0.0
-                self.previousAccel[i] = -curspeed
-            curpos, curLaneID = self.curLanPos(vehID)
-            curEdgeID = traci.lane.getEdgeID(curLaneID)
-            curEdgeIndex = self.graph.normalEdgeIDdict[curEdgeID]
-            if act[0] == STOP:
-                self.previousAccel[i] = -curspeed
-            else:
-                dir = DIRECTION[act[0]]
-                if self.isStreet(vehId, futureSpeed, curpos, curLaneID):
-                    if act[0] != STRAIGHT:
-                        # give penalty
-                        print("nothing!")
-                else:
-                    nextEdgeIndexList = self.graph.normalEdgeConnection[curEdgeIndex]['0']
-                    if dir not in nextEdgeIndexList:
-                        # give penalty
-                        print("nothing!")
-                    else:
-                        nextEdgeIndex = nextEdgeIndexList[dir][0]
-                        nextEdgeID = self.graph.normalEdgeIDList[nextEdgeIndex]
-                        nextLaneID = nextEdgeID + '_{}'.format(0)
-                        nodeIndex = g.graph.edge_index[0][nextEdgeIndex]
-                        nodeID = self.graph.nodeIDList[nodeIndex]
-                        x, y = traci.junction.getPosition(nodeID)
-                        traci.vehicle.moveToXY(v, nextEdgeID, 0, x, y, angle=angle, keepRoute=4)
+        try:
+            traci.close()
+            sys.stdout.flush()
+        except traci.exceptions.FatalTraCIError as ci:
+            print(ci)
     
-    # whether the car is on street or on junction from now to next step
-    def isStreet(self, vehID, futureSpeed, curpos=None, curLaneID=None):
-        index = int(vehID[3:])
-        if curpos is None or curLaneID is None:
-            curpos, curlaneID = self.curLanPos(vehID)
-        length = traci.lane.getLength(curlaneID)
-        futurepos = curpos + futureSpeed
-        if curpos >= length:
-            return True
-        if futurepos > length:
-            return False
-        return True
+    def reward(self):
+        return -1
     
-    def curLanPos(self, vehID):
-        index = int(vehID[3:])
-        curedgeID = traci.vehicle.getRoadID(vehID)
-        curlaneID = traci.vehicle.getLaneID(vehID)
-        roadLength = traci.lane.getLength(curlaneID)
-        pos = traci.vehicle.getLanePosition(vehID)
-        curspeed = self.currentSpeed[index]
-        curLanePosition = pos + curspeed
-        if curLanePosition <= roadLength:
-            return curLanePosition, curlaneID
-        curLanePosition = curLanePosition - roadLength
-        route = traci.vehicle.getRoute(vehID)
-        isStart = False
-        for edge in route:
-            if isStart:
-                laneID = edge + '_{}'.format(0)
-                length = traci.lane.getLength(laneID)
-                if curLanePosition <= length:
-                    return curLanePosition, laneID
-                curLanePosition = curLanePosition - length
-            if edge == curedgeID:
-                isStart = True
-        return 0.0
-
     def observation(self):
         observation = None
-        vehIDlist = traci.vehicle.getIDList()
-        length = len(vehIDlist)
-        # print(self.graph.graph, length)
+        vehIDList = traci.vehicle.getIDList()
+        # print(self.graph.getGraph(), length)
         if self.isgraph:
-            originGraph = self.graph.graph
-            for vehID in vehIDlist:
-                traci.vehicle.getRoadID(vehID)
+            if 'curVehicle' not in dir(self):
+                self.curVehicle = CurVehicle(self.__vehIDList,
+                                             self.__stepLength,
+                                             self.graph)
+            self.curVehicle.calcCurInfo()
+            originGraph = self.graph.getGraph()
+            for vehID in vehIDList:
                 v_info = {}
-                v_info['pos'] = list(map(float, traci.vehicle.getPosition(vehID)))
-                v_info['speed'] = [float(traci.vehicle.getSpeed(vehID))]
-                self.graph.addNode(vehID, traci.vehicle.getRoadID(vehID), v_info)
+                v_info['pos'] = list(map(float,
+                                     self.curVehicle.getPosition(vehID)))
+                v_info['speed'] = [float(self.curVehicle.getCurSpeed(vehID))]
+                self.graph.addNode(vehID,
+                                   traci.vehicle.getRoadID(vehID), v_info)
             # print(self.graph.graph, "obs")
-            observation = self.graph.graph
-            self.graph.graph = originGraph
+            observation = self.graph.getGraph()
+            self.graph.setGraph(originGraph)
         else:
             observation = [self.nodelist, self.edgelist]
             v_info = []
@@ -197,81 +146,95 @@ class SumoEnv(gym.Env):
             v_info.append(traci.vehicle.getRoadID(self.vehID))
             observation.append(v_info)
         return observation
-
-    def initSimulator(self, mode='gui', routing_alg='dijkstra', step_length=0.01):
-        sumocfg = self.sumocfg
-        self.step = 0
-        if mode == 'gui':
-            sumoCmd = ['sumo-gui', '-c', sumocfg, '--routing-algorithm', routing_alg, '--step-length', str(step_length)]
-        elif mode == 'cui':
-            sumoCmd = ['sumo', '-c', sumocfg, '--routing-algorithm', routing_alg, '--step-length', str(step_length)]
-        else :
-            raise AttributeError("not supported mode!!")
-        traci.start(sumoCmd)
-        # self.generateRoute('route1')
-        # traci.vehicle.add(self.vehID, 'route1')
-        # self.addCar(self.carnum - 1)
-        self.addCar(self.carnum)
     
-    def isNewRoute(self, fromedgeindex, toedgeindex):
-        if fromedgeindex not in self.routeEdge:
-            self.routeEdge[fromedgeindex] = []
-            self.routeEdge[fromedgeindex].append(toedgeindex)
-            return True
-        elif toedgeindex not in self.routeEdge[fromedgeindex]:
-            self.routeEdge[fromedgeindex].append(toedgeindex)
-            return True
-        return False
-        
-    def generateRoute(self, routeID):
-        i = 0
-        while True:
-            # print(i, "test", routeID, "route")
-            while True:
-                ns = self.random_int(0, self.graph.num['edge_normal'], 2)
-                fromedge = ns[0]
-                toedge = ns[1]
-                if self.isNewRoute(fromedge, toedge):
-                    break
-            try:
-                fromEdgeID = self.graph.normalEdgeIDList[fromedge]
-                toEdgeID = self.graph.normalEdgeIDList[toedge]
-                route = traci.simulation.findRoute(fromEdgeID, toEdgeID)
-                traci.route.add(routeID, route.edges)
-                return fromEdgeID, toEdgeID
-            except traci.exceptions.TraCIException as routeErr:
-                i+=1
-                # print(i, route.edges)
-                if i == 10:
-                    print(routeErr)
-                    break
-        return None, None
+    def initSimulator(self, mode='gui', routing_alg='dijkstra',
+                      step_length=0.01):
+        sumocfg = self.sumocfg
+        self.__stepLength = step_length
+        sumoCommand = mode
+        if mode == 'gui':
+            sumoCommand = 'sumo-gui'
+        elif mode == 'cui':
+            sumoCommand = 'sumo'
+        else:
+            raise AttributeError("not supported mode!!")
+        sumoCmd = [sumoCommand, '-c', sumocfg, '--routing-algorithm',
+                   routing_alg, '--step-length', str(step_length)]
+        traci.start(sumoCmd)
+        self.addCar(self.__carnum)
 
     def addCar(self, carnum):
         for i in range(carnum):
             vehID = 'veh{}'.format(i)
+            self.__vehIDList.append(vehID)
             routeID = 'route{}'.format(i)
-            fromedge, _ = self.generateRoute(routeID)
+            fromEdgeID, _ = self.generateRoute(routeID)
             traci.vehicle.add(vehID, routeID)
-            #set speed mode
+            # set speed mode
             traci.vehicle.setSpeedMode(vehID, 0)
             # insert car instantly
-            laneID = fromedge + '_{}'.format(0)
-            length = traci.vehicle.getLength(vehID)
-            length = min(length, traci.lane.getLength(laneID))
-            start = self.graph.normalEdgeIDdict[fromedge]
+            laneID = fromEdgeID + '_{}'.format(0)
+            length = min(traci.vehicle.getLength(vehID),
+                         traci.lane.getLength(laneID))
+            start = self.graph.getEdgeIndex(fromEdgeID)
+            # initiallize the car
             if len(self.routeEdge[start]) <= 1:
                 traci.vehicle.moveTo(vehID, laneID, length)
                 traci.vehicle.setSpeed(vehID, 0.0)
-
-    def random_int(self, a, b, num):
-        ns = []
-        while len(ns) < num:
-            n = random.randrange(a, b)
-            if n not in ns:
-                ns.append(n)
-        return ns
     
-    def initGraph(self):
-        self.nodelist = list(self.graph.graph.pos.numpy())
+    def initiallizeGraph(self):
+        self.nodelist = list(self.graph.getGraph().pos.numpy())
         self.edgelist = self.graph.getEdges()
+
+    def turn(self, vehID, curEdgeID, direction):
+        nextEdgeID = self.graph.getNextInfoTo(curEdgeID, None, direction)
+        if nextEdgeID is None:
+            return False
+        else:
+            # move indirectly
+            route = traci.vehicle.getRoute(vehID)
+            targetEdgeID = route[len(route) - 1]
+            newRoute = traci.simulation.findRoute(nextEdgeID, targetEdgeID)
+            # print(newRoute, "newroute")
+            newEdgeList = [curEdgeID]
+            newEdgeList[len(newEdgeList):len(newRoute.edges)] = newRoute.edges
+            if len(newRoute.edges) == 0:
+                print(vehID, "empty")
+                newEdgeList.append(nextEdgeID)
+            traci.vehicle.setRoute(vehID, newEdgeList)
+        return True
+
+    def __takeAction(self, vehIndex, action):
+        isTake = False
+        vehID = self.curVehicle.getVehID(vehIndex)
+        curSpeed = self.curVehicle.getCurSpeed(vehID)
+        futureSpeed = self.curVehicle.changeSpeed(vehID, action[1])
+        curPos, curLaneID = self.curVehicle.calcCurLanePos(vehID)
+        if curLaneID is None or len(curLaneID) <= 0:
+            return False
+        curEdgeID = traci.lane.getEdgeID(curLaneID)
+        if action[0] == STOP:
+            self.curVehicle.setAccel(vehID, -curSpeed)
+            isTake = True
+        else:
+            if self.curVehicle.couldTurn(futureSpeed, vehID):
+                direction = DIRECTION[action[0]]
+                if self.turn(vehID, curEdgeID, direction):
+                    isTake = True
+        return isTake
+        
+    def generateRoute(self, routeID):
+        num_edge = self.graph.getNum('edge_normal')
+        fromEdgeID = None
+        toEdgeID = None
+        for i in range(10):
+            # print(i, "test", routeID, "route")
+            fromEdgeIndex, toEdgeIndex = randomTuple(0, num_edge,
+                                                     2, self.routeEdge)
+            fromEdgeID = self.graph.getEdgeID(fromEdgeIndex)
+            toEdgeID = self.graph.getEdgeID(toEdgeIndex)
+            route = traci.simulation.findRoute(fromEdgeID, toEdgeID)
+            if len(route.edges) > 0:
+                traci.route.add(routeID, route.edges)
+                break
+        return fromEdgeID, toEdgeID
