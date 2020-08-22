@@ -83,7 +83,7 @@ env.close()
 #     if i != edgeIndex:
 #         print(edgeID, edgeIndex, i, "failure!!")
 # edgeindex = env.graph.normalEdgeIDdict['39436461#0']
-# test = env.graph.normalEdgeConnection[521] 
+# test = env.graph.normalEdgeConnection[521]
 # print(test, edgeindex)
 # if test is None:
 #     print("yes")

@@ -46,7 +46,7 @@
 #         t = tmp[i][veh]
 #         if lan in t:
 #             tt = t[lan]
-#     tt.append(i)    
+#     tt.append(i)
 #     t[lan] = tt
 #     tmp[i][veh] = t
 # print(tmp)
@@ -57,7 +57,7 @@
 #     tt = []
 #     if veh in tmp[i]:
 #         t = tmp[i][veh]
-#         if lan in t: 
+#         if lan in t:
 #             tt = t[lan]
 #     tt.append(i)
 #     t[lan] = tt

@@ -195,7 +195,7 @@ def takeAction():
         time = step
         if step == 3:
             turn(v, 'l')
-        # print(v, "speed", speed, "edge", current_edge, "siganl", signal, 
+        # print(v, "speed", speed, "edge", current_edge, "siganl", signal,
         #       "pos", pos, "dis", dis, "len", lanelen, "acc2", acc2, step)
         time = preaccel[index]
         vnext = speed + time
