@@ -1,6 +1,8 @@
 import traci
 import random
+import sys
 
+from traci.exceptions import TraCIException
 from gym_sumo.envs.sumo_env import Graph
 
 g = Graph('map/testmap/osm.net.xml')
@@ -54,12 +56,15 @@ def generateRoute(routeID):
                                                g.getEdgeID(toedge))
             traci.route.add(routeID, route.edges)
             return g.getEdgeID(fromedge), g.getEdgeID(toedge)
-        except traci.exceptions.TraCIException as routeErr:
+        except TraCIException as routeErr:
             i += 1
-            # print(i, route.edges)
+            print(i, route.edges)
             if i == 10:
                 print(routeErr)
                 break
+        except Exception as e:
+            a, b, c = sys.exc_info()
+            print(e, a, b, c)
     return None, None
 
 
@@ -153,8 +158,11 @@ def showInfo(v):
         laneNum = traci.edge.getLaneNumber(nextEdgeID)
         for lane in range(laneNum):
             nextLaneID = nextEdgeID + '_{}'.format(lane)
-            foes = traci.lane.getFoes(laneID, nextLaneID)
-            foesList.append(foes)
+            try:
+                foes = traci.lane.getFoes(laneID, nextLaneID)
+                foesList.append(foes)
+            except traci.exceptions.TraCIException as tr:
+                print(tr)
     connection = g.getConnection()
     connect = []
     edgeIndex = g.getEdgeIndex(current_edge)
@@ -193,6 +201,12 @@ def takeAction():
         # print(v, "speed", speed, "edge", current_edge, "siganl", signal,
         #       "pos", pos, "len", lanelen, "dis", dis, step)
         time = step
+        if isJunction(v):
+            routeIndex = traci.vehicle.getRouteIndex(v)
+            routes = traci.vehicle.getRoute(v)
+            current_edge = traci.vehicle.getRoadID(v)
+            print(current_edge, routeIndex, routes,
+                  routes[routeIndex], "routeindex")
         if step == 3:
             turn(v, 'l')
         # print(v, "speed", speed, "edge", current_edge, "siganl", signal,
@@ -218,9 +232,17 @@ def changeSpeed(v, accel):
     print("pre", preaccel[index], "future", accel)
 
 
+def isJunction(vehID):
+    ID = traci.vehicle.getRoadID(vehID)
+    if g.getEdgeIndex(ID) == -1:
+        return True
+    return False
+
+
 def main(sumocfg):
     step_length = 1
-    sumoCmd = ['sumo-gui', '-c', sumocfg, '--step-length', str(step_length)]
+    sumoCmd = ['sumo-gui', '-c', sumocfg, '--step-length', str(step_length),
+               '--tls.all-off', str(True)]
 
     traci.start(sumoCmd)
     addCar(100)
@@ -279,7 +301,7 @@ def main(sumocfg):
         # print("take action")
         # if len(v_list) > 0:
         #     showInfo(v_list[0])
-            
+
     traci.close()
 
 

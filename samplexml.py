@@ -31,10 +31,10 @@
 # test[len(test):len(test2)] = test2
 # test2[len(test2):len(test)] = test
 # test3 = test2
-# tmp = [{} for i in range(10)]
+# tmp = [(0, 10) for i in range(10)]
 # for i in range(10):
-#     veh = 'test{}'.format(i)
-#     tmp[i][veh] = i
+#     veh = (i, i + 1)
+#     tmp[i] = veh
 # print(tmp)
 # tmp = [{} for i in range(10)]
 # for i in range(10):
@@ -62,7 +62,10 @@
 #     tt.append(i)
 #     t[lan] = tt
 #     tmp[i][veh] = t
-# # tmp = [[]*1 for i in range(10)]
+# tmp = [0] * 10
+# print(tmp)
+# tmp[0] = -1
+# tmp[2] = 2
 # print(tmp)
 # import re
 # tmp = ":::190909_00_00"
@@ -249,8 +252,47 @@
 # print(action)
 
 # print(action)
-test = {0: [1, 2, 3], 1: [0, 2, 8], 2: [2, 2, 5]}
-if 0 in test:
-    print("yy")
-else:
-    print("no")
+# test = {0: [1, 2, 3], 1: [0, 2, 8], 2: [2, 2, 5]}
+# if 0 in test:
+#     print("yy")
+# else:
+#     print("no")
+
+# from gym import error
+
+# try:
+#     raise error.DependencyNotInstalled("error")
+# except Exception as e:
+#     print(e)
+
+# import os
+# tmp = os.path.dirname(__file__)
+# sumoMap = os.path.join(os.path.dirname(__file__),
+#                        'gym-sumo')
+# tmp2 = 'gym_sumo/__init__.py'
+# tmp3 = os.path.join(sumoMap, tmp2)
+# sumoMap += '/gym_sumo/__init__.py'
+# print(sumoMap, tmp, tmp2, tmp3)
+# with open(sumoMap) as f:
+#     print(f.read())
+# with open(tmp3) as f:
+#     print(f.read())
+
+# def test(tlist, test=-1):
+#     if test < 0:
+#         test = 0
+#     tlist.append(test)
+#     print(test, tlist)
+
+# tmp = -1
+# tmplis = [1, 2]
+# test(test=tmp, tlist=tmplis)
+# print(tmp, tmplis)
+# tmp2 = ''
+# if tmp2 is not None and len(tmp2) > 0:
+#     print("ys")
+# else:
+#     print("no")
+
+a = (5 * 6 + 1) + 2
+b = (5 * 6 + 1) + 4
