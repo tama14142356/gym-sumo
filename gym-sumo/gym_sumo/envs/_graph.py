@@ -112,18 +112,18 @@ class Graph:
 
     def getConnection(self):
         return self.__normalEdgeConnection
-    
+
     def __getProcessInfo(self, curEdgeIndex, toEdgeID):
         tmp = self.__normalEdgeConnection
         ans = [toEdgeID, None, None, None]
         isFinished = False
-        
+
         # index error or not supported
         if (curEdgeIndex >= len(tmp)
                 or curEdgeIndex < 0
                 or not self.__isDirection):
             isFinished = True
-        
+
         for lane in tmp[curEdgeIndex]:
             if isFinished:
                 break
@@ -137,7 +137,7 @@ class Graph:
                         ans[3] = lane
                         isFinished = True
         return ans
-    
+
     # 基本としてはcurEdgeIndexから接続されているEdgeの情報を返す
     # ただし、現在の車線(curLaneIndex)、行きたい方向(nextDirection)、接続先(toEdgeID)
     # のいずれかと一致するもののうち一つを返す。
@@ -158,7 +158,7 @@ class Graph:
         # get process info in the road from curEdge to toEdge
         if toEdgeID is not None:
             return self.__getProcessInfo(curEdgeIndex, toEdgeID)
-        
+
         ans = [None, None, nextDirection, curLaneIndex]
         tmp = self.__normalEdgeConnection
         # index error or not supported
@@ -166,7 +166,7 @@ class Graph:
                 or curEdgeIndex < 0
                 or not self.__isDirection):
             return ans
-        
+
         for lane in tmp[curEdgeIndex]:
             if nextDirection in tmp[curEdgeIndex][lane]:
                 edges = tmp[curEdgeIndex][lane][nextDirection][0]
@@ -178,32 +178,32 @@ class Graph:
         return ans
 
     def getNextInfoAll(self, curEdgeID, curLaneIndex=None,
-                       nextDirection='no', toEdgeID=None):
+                       nextDirection=None, toEdgeID=None):
         curEdgeIndex = self.getEdgeIndex(curEdgeID)
         tmp = self.__getNextInfo(curEdgeIndex, curLaneIndex,
                                  nextDirection, toEdgeID)
         return tmp[0], tmp[1], tmp[2], tmp[3]
 
     def getNextInfoFrom(self, curEdgeID, curLaneIndex=None,
-                        nextDirection='no', toEdgeID=None):
+                        nextDirection=None, toEdgeID=None):
         _, _, _, ans = self.getNextInfoAll(curEdgeID, curLaneIndex,
                                            nextDirection, toEdgeID)
         return ans
 
     def getNextInfoDirect(self, curEdgeID, curLaneIndex=None,
-                          nextDirection='no', toEdgeID=None):
+                          nextDirection=None, toEdgeID=None):
         _, _, ans, _ = self.getNextInfoAll(curEdgeID, curLaneIndex,
                                            nextDirection, toEdgeID)
         return ans
 
     def getNextInfoVia(self, curEdgeID, curLaneIndex=None,
-                       nextDirection='no', toEdgeID=None):
+                       nextDirection=None, toEdgeID=None):
         _, ans, _, _ = self.getNextInfoAll(curEdgeID, curLaneIndex,
                                            nextDirection, toEdgeID)
         return ans
 
     def getNextInfoTo(self, curEdgeID, curLaneIndex=None,
-                      nextDirection='no', toEdgeID=None):
+                      nextDirection=None, toEdgeID=None):
         ans, _, _, _ = self.getNextInfoAll(curEdgeID, curLaneIndex,
                                            nextDirection, toEdgeID)
         return ans
@@ -519,8 +519,12 @@ class Graph:
         print(data['x'])
         print("====== ノードのクラス:y ======")
         print(data['y'])
-        print("========= エッジ形状 =========")
+        print("====== ノードの座標:pos ======")
+        print(data['pos'])
+        print("========= エッジ形状:edge_index =========")
         print(data['edge_index'])
+        print("========= エッジの特徴量:edge_attr =========")
+        print(data['edge_attr'])
 
 
 # sumoBinary = os.environ['SUMO_HOME']
