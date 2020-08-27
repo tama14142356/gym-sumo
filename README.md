@@ -39,10 +39,11 @@ Linux (Ubuntu):
     ```
 
 1. SUMO用PATHの設定  
-   以下の内容を~/.bashrcまたは~/.bash_profileの最後の行に追記する。 
+   以下の内容を~/.bashrcまたは~/.bash_profileの最後の行に追記する。  
+   ただし、SUMO_HOMEの部分はsumoをインストールしたパスを書く。ここでは~/においてインストールしたとする。
 
     ```sh
-    export SUMO_HOME="/home/tomoya/sumo_pj/sumo"
+    export SUMO_HOME="~/sumo"
     export PATH="$SUMO_HOME/bin:$PATH"
     export PYTHONPATH="$SUMO_HOME/tools:$PYTHONPATH"
     ```
@@ -125,9 +126,11 @@ Or you can build and install sumo by following:
 
 1. set the path for sumo:  
    append following contents to the end of the file named by ~/.bashrc or ~/.bash_profile
+   and you should write the path for sumo against SUMO_HOME.   
+   In this time, you install sumo on ~/.
 
     ```sh
-    export SUMO_HOME="/home/tomoya/sumo_pj/sumo"
+    export SUMO_HOME="~/sumo"
     export PATH="$SUMO_HOME/bin:$PATH"
     export PYTHONPATH="$SUMO_HOME/tools:$PYTHONPATH"
     ```
