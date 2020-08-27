@@ -8,7 +8,8 @@ import random
 #     'isgraph': True,
 #     'area': 'nishiwaseda',
 #     'carnum': 100,
-#     'mode': 'gui' or 'cui'
+#     'mode': 'gui' (or 'cui'),
+#     'simlation_step': 100
 # }
 args = {
     'step_length': 1,
