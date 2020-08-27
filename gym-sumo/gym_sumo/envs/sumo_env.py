@@ -42,7 +42,7 @@ class SumoEnv(gym.Env):
             self.initiallizeGraph()
 
         self.routeEdge = {}
-        self.observation = self.reset()
+        self.observation = self.reset(mode=mode)
         if 'curVehicle' not in dir(self):
             self.curVehicle = CurVehicle(self.__vehIDList,
                                          self.__stepLength, self.graph)
