@@ -23,7 +23,7 @@ from gym_sumo.envs._util import randomTuple
 class SumoEnv(gym.Env):
 
     def __init__(self, isgraph=True, area='nishiwaseda', carnum=100,
-                 mode='gui', step_length=0.01):
+                 mode='gui', step_length=0.01, simulation_end=100):
         sumoConfig = 'sumo_configs/' + area
         sumoMap = os.path.join(os.path.dirname(__file__), sumoConfig)
         netpath = os.path.join(sumoMap, 'osm.net.xml')
@@ -33,6 +33,7 @@ class SumoEnv(gym.Env):
         self.__carnum = carnum
         self.__vehIDList = []
         self.__stepLength = step_length
+        self.__simulation_end = simulation_end
         self.isgraph = isgraph
         self.graph = Graph(netpath)
         self.initGraph = self.graph.getGraph()
@@ -59,6 +60,15 @@ class SumoEnv(gym.Env):
                                             shape=(np.shape(self.observation)))
         self.reward_range = [(-5, 10) for i in range(carnum)]
 
+    def _isDone(self, vehID):
+        removeList = self.curVehicle.getRemoveList()
+        step = traci.simulation.getTime()
+        if vehID in removeList:
+            return True
+        elif step >= self.__simulation_end:
+            return True
+        return False
+
     def step(self, action):
         # calculate vehicle info in current step
         v_list = traci.vehicle.getIDList()
@@ -68,14 +78,18 @@ class SumoEnv(gym.Env):
             traci.vehicle.setSpeed(v, curSpeed)
         # determine next step action
         isTakeAction = []
+        isDone = []
         for i, act in enumerate(action):
             isTake = self.__takeAction(i, act)
             isTakeAction.append(isTake)
+            vehID = self.curVehicle.getVehID(i)
+            tmp = self._isDone(vehID)
+            isDone.append(tmp)
         traci.simulationStep()
         self.curVehicle.setInValid()
         observation = self.observation()
         reward = self.reward(isTakeAction, action)
-        return observation, reward
+        return observation, reward, isDone, {}
 
     def reset(self, mode='gui'):
         # reset
