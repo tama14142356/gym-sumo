@@ -209,7 +209,7 @@ class SumoEnv(gym.Env):
             if len(self.routeEdge[start]) <= 1:
                 traci.vehicle.moveTo(vehID, laneID, length)
                 traci.vehicle.setSpeed(vehID, 0.0)
-    
+
     def generateRoute(self, routeID):
         num_edge = self.graph.getNum('edge_normal')
         fromEdgeID = None

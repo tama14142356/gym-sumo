@@ -8,3 +8,18 @@ torch-geometric
 matplotlib==3.3.0
 numpy==1.19.1
 gym==0.17.2
+
+# for gpu
+# torch==1.6.0
+# torchvision==0.7.0
+# torch-scatter==latest+cu102
+# torch-sparse==latest+cu102
+# torch-cluster==latest+cu102
+# torch-spline-conv==latest+cu102
+# torch-geometric
+
+# extra package for vscode
+# flake8-3.8.3
+# mccabe-0.6.1
+# pycodestyle-2.6.0
+# pyflakes-2.2.0

@@ -6,7 +6,7 @@
 OS : Linux, Windows7以上, macOS  
 (ただし、動作確認したのはUbuntu18.04LTSのみ)  
 ソフトウェア : SUMO, python3  
-おすすめのpython環境 : anaconda を使ったpython3.7
+おすすめのpython環境 : anaconda を使ったpython3.7以上
 
 ## SUMO インストール方法
 Linux (Ubuntu):  
@@ -70,7 +70,14 @@ Linux (Ubuntu):
     ```
 
 1. 実行するために必要なpythonパッケージをインストール  
-   以下のコマンドを実行
+   CUDAが使えるGPUが搭載されているなら、以下のコマンドを実行
+
+    ```
+    $ cd ~/gym-sumo/gym-sumo
+    $ bash install_gpu.sh
+    ```
+
+   cpuしか使えないなら、以下のコマンドを実行
 
     ```
     $ cd ~/gym-sumo/gym-sumo
@@ -83,7 +90,7 @@ Linux (Ubuntu):
 
 ```
 $ cd ~/gym-sumo
-$ python sampletraci.py
+$ python test_gym.py
 ```
 
 # gym environment for sumo
@@ -92,7 +99,7 @@ $ python sampletraci.py
 OS : Linux, Windows7+  
 (confirmed operation with Ubuntu18.04LTS)  
 software : SUMO, python3  
-recommend python environment : anaconda python=3.7  
+recommend python environment : anaconda python 3.7+  
 
 ### install SUMO
 Linux(Ubuntu):  
@@ -157,11 +164,18 @@ check following URL:
     ```
 
 1. install requirement packages:
-   run the following command
+   if your system has gpu using by cuda driver, run the following command
 
     ```
     $ cd ~/gym-sumo/gym-sumo
-    $ bash install.sh
+    $ bash install_gpu.sh
+    ```
+
+   if your system has only cpu, run the following command
+
+    ```
+    $ cd ~/gym-sumo/gym-sumo
+    $ bash install_gpu.sh
     ```
 
 ## Usage gym environment
@@ -169,5 +183,5 @@ you can run the test code by following:
 
 ```
 $ cd ~/gym-sumo
-$ python sampletraci.py
+$ python test_gym.py
 ```
