@@ -6,7 +6,7 @@
 OS : Linux, Windows7以上, macOS  
 (ただし、動作確認したのはUbuntu18.04LTSのみ)  
 ソフトウェア : SUMO, python3  
-おすすめのpython環境 : anaconda を使ったpython3.7以上
+python環境 : anaconda を使ったpython3.7以上
 
 ## SUMO インストール方法
 Linux (Ubuntu):  
@@ -70,10 +70,12 @@ Linux (Ubuntu):
     ```
 
 1. 実行するために必要なpythonパッケージをインストール  
-   CUDAが使えるGPUが搭載されているなら、以下のコマンドを実行
+   CUDAが使えるGPUが搭載されているなら、以下のコマンドを実行  
+   (anaconda環境であることを前提とします。)
 
     ```
     $ cd ~/gym-sumo/gym-sumo
+    $ conda create -n sumogpu python=3 && conda activate sumogpu
     $ bash install_gpu.sh
     ```
 
@@ -99,7 +101,7 @@ $ python test_gym.py
 OS : Linux, Windows7+  
 (confirmed operation with Ubuntu18.04LTS)  
 software : SUMO, python3  
-recommend python environment : anaconda python 3.7+  
+python environment : anaconda python 3.7+  
 
 ### install SUMO
 Linux(Ubuntu):  
@@ -164,10 +166,12 @@ check following URL:
     ```
 
 1. install requirement packages:
-   if your system has gpu using by cuda driver, run the following command
+   if your system has gpu using by cuda driver, run the following command  
+   (python environment presupposes anaconda)
 
     ```
     $ cd ~/gym-sumo/gym-sumo
+    $ conda create -n sumogpu && conda activate sumogpu
     $ bash install_gpu.sh
     ```
 
@@ -175,7 +179,7 @@ check following URL:
 
     ```
     $ cd ~/gym-sumo/gym-sumo
-    $ bash install_gpu.sh
+    $ bash install.sh
     ```
 
 ## Usage gym environment
