@@ -165,7 +165,7 @@ check following URL:
     $ git clone https://git.esslab.jp/tomo/gym-sumo.git
     ```
 
-1. install requirement packages:
+1. install requirement packages:  
    if your system has gpu using by cuda driver, run the following command  
    (python environment presupposes anaconda)
 
