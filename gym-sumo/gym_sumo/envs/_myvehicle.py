@@ -9,6 +9,8 @@ RIGHT = 4
 PARRIGHT = 5
 STOP = 6
 
+# standard length for adding car
+SPOS = 10.5
 
 DIRECTION = ['s', 'T', 'l', 'L', 'r', 'R']
 
@@ -34,25 +36,37 @@ class CurVehicle:
     def __init__(self, vehIDList, step_length, graph):
         self.__graph = graph
         self.__curVehInfo = []
-        for i, vehID in enumerate(vehIDList):
+        for vehID in vehIDList:
             tmp = {}
             tmp['ID'] = vehID
-            tmp['speed'] = traci.vehicle.getSpeed(vehID)
-            tmp['lanePos'] = traci.vehicle.getLanePosition(vehID)
-            tmp['laneID'] = traci.vehicle.getLaneID(vehID)
-            tmp['edgeID'] = traci.vehicle.getRoadID(vehID)
+            tmp['exist'] = False
+            tmp['speed'] = -1.0
+            tmp['lanePos'] = -1.0
+            tmp['laneID'] = ''
+            tmp['edgeID'] = ''
+            tmp['pos'] = (-1.0, -1.0)
+            vehList = traci.vehicle.getIDList()
+            if vehID in vehList:
+                tmp['exist'] = True
+                tmp['speed'] = traci.vehicle.getSpeed(vehID)
+                tmp['lanePos'] = traci.vehicle.getLanePosition(vehID)
+                tmp['laneID'] = traci.vehicle.getLaneID(vehID)
+                tmp['edgeID'] = traci.vehicle.getRoadID(vehID)
+                tmp['pos'] = traci.vehicle.getPosition(vehID)
             tmp['routeIndex'] = 0
             tmp['accel'] = 0.0
-            tmp['pos'] = traci.vehicle.getPosition(vehID)
             tmp['routeLen'] = 0
-            tmp['start'] = tmp['edgeID']
-            route = traci.vehicle.getRoute(vehID)
+            tmp['routeID'] = vehIDList[vehID]
+            route = traci.route.getEdges(vehIDList[vehID])
             index = len(route) - 1
+            tmp['start'] = route[0]
             tmp['target'] = route[index]
             self.__curVehInfo.append(tmp)
         self.isValid = False
         self.__stepLength = step_length
         self.__removeVehIDList = []
+        self.__noExistList = {}
+        self.updateExist()
 
     def getCurInfoAll(self, vehID, vehIndex=-1):
         if vehIndex < 0:
@@ -61,6 +75,77 @@ class CurVehicle:
 
     def setInValid(self):
         self.isValid = False
+
+    def isExist(self, vehID=None, vehIndex=-1):
+        if vehIndex < 0:
+            if vehID is None:
+                return False
+            vehIndex = self.getVehIndex(vehID)
+        return self.__curVehInfo[vehIndex]['exist']
+
+    def setExist(self, vehID=None, vehIndex=-1):
+        if vehIndex < 0:
+            if vehID is not None:
+                vehIndex = self.getVehIndex(vehID)
+        if vehIndex > 0:
+            self.__curVehInfo[vehIndex]['exist'] = True
+
+    def updateExist(self):
+        tmpList = {}
+        vehList = self.__curVehInfo
+        for vehInfo in vehList:
+            vehID = vehInfo['ID']
+            isExist = vehInfo['exist']
+            if not isExist:
+                start = vehInfo['start']
+                tmp = {}
+                if start in tmpList:
+                    tmp = tmpList[start]
+                    tmp['ID'].append(vehID)
+                else:
+                    tmp['pos'] = -1.0
+                    tmp['ID'] = [vehID]
+                    tmpList[start] = tmp
+
+        for vehInfo in vehList:
+            vehID = vehInfo['ID']
+            isExist = vehInfo['exist']
+            if isExist:
+                curEdge = vehInfo['edgeID']
+                if curEdge in tmpList:
+                    curLanePos = vehInfo['lanePos']
+                    tmp = tmpList[curEdge]
+                    pos = tmp['pos']
+                    if pos > 0:
+                        curLanePos = min(pos, curLanePos)
+                    tmp['pos'] = curLanePos
+                    tmpList[curEdge] = tmp
+
+        tmpListCopy = tmpList.copy()
+
+        for edgeID in tmpListCopy:
+            edgeInfo = tmpList[edgeID]
+            pos = edgeInfo['pos']
+            if pos >= SPOS:
+                vehID = edgeInfo['ID'].pop(0)
+                vehIndex = self.getVehIndex(vehID)
+                routeID = self.__curVehInfo[vehIndex]['routeID']
+                laneID = edgeID + '_0'
+                length = min(traci.vehicle.getLength(vehID),
+                             traci.lane.getLength(laneID))
+                # register car
+                traci.vehicle.add(vehID, routeID)
+                # set speed mode
+                traci.vehicle.setSpeedMode(vehID, 0)
+                # insert car instantly
+                traci.vehicle.moveTo(vehID, laneID, length)
+                traci.vehicle.setSpeed(vehID, 0.0)
+                self.setExist(vehID=vehID)
+                # if len(edgeInfo['ID']) <= 0:
+                #     tmpList.pop(edgeID)
+            # update list
+            # if edgeID in tmpList:
+            #     tmpList[edgeID] = edgeInfo
 
     def getVehIndex(self, vehID):
         index = -1
@@ -73,10 +158,10 @@ class CurVehicle:
 
     def getVehID(self, vehIndex):
         return self.__curVehInfo[vehIndex]['ID']
-    
+
     def getRemoveList(self):
         return self.__removeVehIDList
-    
+
     def removeVeh(self, vehID):
         if vehID not in self.__removeVehIDList:
             self.__removeVehIDList.append(vehID)
@@ -181,6 +266,7 @@ class CurVehicle:
                 self.calcCurLanePos(vehID, vehIndex=index)
                 self.calcCurPosition(vehID, vehIndex=index)
                 self.calcRouteLength(vehID, vehIndex=index)
+        self.updateExist()
 
     def calcRouteLength(self, vehID, vehIndex=-1):
         if vehIndex < 0:
@@ -263,8 +349,8 @@ class CurVehicle:
             edgeID = route[i]
             laneID = edgeID + '_{}'.format(0)
             roadLength = traci.lane.getLength(laneID)
-            viaLaneID = self.__graph.getNextInfoVia(preEdgeID, '0',
-                                                    'no', edgeID)
+            viaLaneID = self.__graph.getNextInfoVia(preEdgeID, None,
+                                                    None, edgeID)
             nodeLength = traci.lane.getLength(viaLaneID)
             if tempPos < nodeLength:
                 curLaneID = viaLaneID
