@@ -70,6 +70,8 @@ def generateRoute(routeID):
 
 def addCar(carnum):
     for i in range(carnum):
+        v_list = traci.vehicle.getIDList()
+        print(v_list)
         vehID = 'veh{}'.format(i)
         routeID = 'route{}'.format(i)
         fromedge, _ = generateRoute(routeID)
@@ -83,6 +85,9 @@ def addCar(carnum):
         if len(route[start]) <= 1:
             traci.vehicle.moveTo(vehID, laneID, length)
             traci.vehicle.setSpeed(vehID, 0.0)
+            vlist = traci.lane.getLastStepVehicleIDs(laneID)
+            showInfo(vlist[0])
+            print(vlist)
 # def isStreet(vehID):
 
 
@@ -147,6 +152,50 @@ def showInfo(v):
     acc = traci.vehicle.getAccel(v)
     acc2 = traci.vehicle.getAcceleration(v)
     decel = traci.vehicle.getDecel(v)
+    accumulate = traci.vehicle.getAccumulatedWaitingTime(v)
+    action_stp = traci.vehicle.getActionStepLength(v)
+    travel = traci.vehicle.getAdaptedTraveltime(v, step, current_edge)
+    allsub = traci.vehicle.getAllContextSubscriptionResults()
+    allow = traci.vehicle.getAllowedSpeed(v)
+    subresult = traci.vehicle.getAllSubscriptionResults()
+    decel2 = traci.vehicle.getApparentDecel(v)
+    bestLane = traci.vehicle.getBestLanes(v)
+    drive = traci.vehicle.getDrivingDistance(v, current_edge, pos, laneindex)
+    drive2 = traci.vehicle.getDrivingDistance2D(v, v_x, v_y)
+    emergDecel = traci.vehicle.getEmergencyDecel(v)
+    follow = traci.vehicle.getFollower(v)
+    laneChange = traci.vehicle.getLaneChangeState(v, 0)
+    laneChangePretty = traci.vehicle.getLaneChangeStatePretty(v, 0)
+    action_time = traci.vehicle.getLastActionTime(v)
+    lateralLanePos = traci.vehicle.getLateralLanePosition(v)
+    lateralSpeed = traci.vehicle.getLateralSpeed(v)
+    leader = traci.vehicle.getLeader(v)
+    left = traci.vehicle.getLeftFollowers(v)
+    leftleader = traci.vehicle.getLeftLeaders(v)
+    line = traci.vehicle.getLine(v)
+    maxSpeed = traci.vehicle.getMaxSpeed(v)
+    maxLatSpeed = traci.vehicle.getMaxSpeedLat(v)
+    gap = traci.vehicle.getMinGap(v)
+    latGap = traci.vehicle.getMinGapLat(v)
+    neighborLeftAhead = traci.vehicle.getNeighbors(v, 0)
+    neighborRightAhead = traci.vehicle.getNeighbors(v, 1)
+    neighborLeftBehind = traci.vehicle.getNeighbors(v, 2)
+    neighborRightBehind = traci.vehicle.getNeighbors(v, 3)
+    rightfollow = traci.vehicle.getRightFollowers(v)
+    rightleader = traci.vehicle.getRightLeaders(v)
+    slope = traci.vehicle.getSlope(v)
+    deviat = traci.vehicle.getSpeedDeviation(v)
+    factor = traci.vehicle.getSpeedFactor(v)
+    mode = traci.vehicle.getSpeedMode(v)
+    speed_without = traci.vehicle.getSpeedWithoutTraCI(v)
+    delay = traci.vehicle.getStopDelay(v)
+    stopSpeed = traci.vehicle.getStopSpeed(v, speed, gap)
+    state = traci.vehicle.getStopState(v)
+    tau = traci.vehicle.getTau(v)
+    typeID = traci.vehicle.getTypeID(v)
+    vclass = traci.vehicle.getVehicleClass(v)
+    via = traci.vehicle.getVia(v)
+    wait = traci.vehicle.getWaitingTime(v)
     pos2 = traci.simulation.convert2D(current_edge, pos, laneindex)
     links = traci.lane.getLinks(laneID)
     shape = traci.lane.getShape(laneID)
@@ -173,7 +222,23 @@ def showInfo(v):
           "pos", pos, "v_x", v_x, "v_y", v_y, "angle", angle, "dis", dis,
           "max_accel", acc, "cur_accel", acc2, "max_decel", decel,
           "position", pos2, "link", links, "connet", connect, "foes", foesList,
-          "shape", shape, "step", step)
+          "shape", shape, "step", step, "accumlate", accumulate, "action_stp",
+          action_stp, "action_time", action_time, "travel", travel, "allsub",
+          allsub, "allow", allow, "subresult", subresult, "decel2", decel2,
+          "bestlane", bestLane, "drive", drive, "drive2", drive2,
+          "emergeDecel", emergDecel, "follow", follow, "lanechange",
+          laneChange, "lanechangepretty", laneChangePretty, "lateratLanepos",
+          lateralLanePos, "lateralSpeed", lateralSpeed, "leader", leader,
+          "left", left, "leftleader", leftleader, "line", line, "maxspeed",
+          maxSpeed, "maxLatSpeed", maxLatSpeed, "gap", gap, "latGap", latGap,
+          "neighbor leftahead", neighborLeftAhead, "neighbor rightahead",
+          neighborRightAhead, "neighbor leftbehind", neighborLeftBehind,
+          "neighbor rightbehind", neighborRightBehind, "rightfollow",
+          rightfollow, "rightleader", rightleader, "slope", slope, "deviat",
+          deviat, "factor", factor, "speedmode", mode, "speed_without",
+          speed_without, "delay", delay, "stopspeed", stopSpeed, "state",
+          state, "tau", tau, "typeID", typeID, "vclass", vclass, "via", via,
+          "wait", wait)
 
 
 def takeAction():
@@ -192,7 +257,7 @@ def takeAction():
         v_x, v_y = traci.vehicle.getPosition(v)
         # angle = traci.vehicle.getAngle(v)
         # dis = traci.vehicle.getDistance(v)
-        # acc = traci.vehicle.getAccel(v)
+        acc = traci.vehicle.getAccel(v)
         acc2 = traci.vehicle.getAcceleration(v)
         decel = traci.vehicle.getDecel(v)
         # traci.vehicle.moveToXY(v, current_edge, laneindex, v_x,
@@ -211,16 +276,21 @@ def takeAction():
             turn(v, 'l')
         # print(v, "speed", speed, "edge", current_edge, "siganl", signal,
         #       "pos", pos, "dis", dis, "len", lanelen, "acc2", acc2, step)
-        time = preaccel[index]
-        vnext = speed + time
-        under = max(-4.5, -vnext)
-        futureaccel[index] = random.uniform(under, 2.6)
-        preaccel[index] = futureaccel[index]
-        pos2 = pos + vnext
+        # 現在の速度を計算してから未来の速度を決める方法
+        # time = preaccel[index]
+        # vnext = speed + time
+        # under = max(-4.5, -vnext)
+        # futureaccel[index] = random.uniform(under, 2.6)
+        # preaccel[index] = futureaccel[index]
+        # pos2 = pos + vnext
+        # 普通の方法
+        under = max(-4.5, -speed)
+        futureAccel = random.uniform(under, acc)
+        vnext = speed + futureAccel
         traci.vehicle.setSpeed(v, vnext)
         # traci.vehicle.moveTo(v, laneID, pos2)
         if v == v_list[0]:
-            print(v, index, decel, "pos2", pos2, "pos", pos,
+            print(v, index, decel, "maxaccel", acc, "pos", pos,
                   "lanelen", lanelen, "vnext", vnext, "time", time,
                   "future", futureaccel[index], "pre", preaccel[index],
                   "speed", speed, "accel", acc2, "testest")
@@ -274,18 +344,18 @@ def main(sumocfg):
     while step < 60 * 60 * 24:  # 1day
         print("testetset4444")
         v_list = traci.vehicle.getIDList()
-        if len(v_list) > 0:
-            showInfo(v_list[0])
+        for v in v_list:
+            showInfo(v)
         takeAction()
         print("take action")
         # if len(v_list) > 0:
         #     showInfo(v_list[0])
-        if step == 6:
-            turn(v_list[0], 'r')
+        # if step == 6:
+        #     turn(v_list[0], 'r')
         # changeSpeed(v_list[0], 1)
         # print("take action")
         # if len(v_list) > 0:
-            # showInfo(v_list[0])
+        #     showInfo(v_list[0])
         traci.simulationStep()
         step = traci.simulation.getTime()
         v_list = traci.vehicle.getIDList()
@@ -299,8 +369,8 @@ def main(sumocfg):
         #     turn(v_list[0], 'r')
         # changeSpeed(v_list[0], 1)
         # print("take action")
-        # if len(v_list) > 0:
-        #     showInfo(v_list[0])
+        if len(v_list) > 0:
+            showInfo(v_list[0])
 
     traci.close()
 

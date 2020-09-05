@@ -152,12 +152,13 @@
 # test = [{'to':"value", 'via':1}, {'to'}]
 # class myData:
 #     def __init__(self):
-#         self.x = 0
+#         self.x = 0en(v_list) > 0:
+#
 #         self.y = 1
 #         self.listx = [12, 2, 4, 5]
 #         self.tests = []
 #         self.add(10)
-    
+
 #     def add(self, num):
 #         for i in range(num):
 #             t = TestXml()
@@ -171,7 +172,7 @@
 
 #     def getmember(self):
 #         return self.__member
-    
+
 #     def getlist(self):
 #         return self.__listmenmber
 
@@ -294,5 +295,42 @@
 # else:
 #     print("no")
 
-a = (5 * 6 + 1) + 2
-b = (5 * 6 + 1) + 4
+# a = (5 * 6 + 1) + 2
+# # b = (5 * 6 + 1) + 4
+
+import gym
+
+carnum = 100
+args = {
+    'mode': 'gui',
+    'carnum': carnum
+}
+
+# 環境の確認
+env = gym.make('gym_sumo:sumo-v0', **args)
+print("observation space num: ", env.observation_space.shape[0])
+print("action space num: ", env.action_space[0][0].n)
+
+pobs = env.reset()
+done = False
+while not done:
+    act = []
+    for i in range(carnum):
+        tmp = env.action_space[i].sample()
+        act.append(tmp)
+    obs, reward, done, _ = env.step(act)
+    print(pobs, act, reward, obs, done)
+    pobs = obs
+
+# import torch
+# import torch.nn as nn
+
+# m = nn.Linear(2, 3)
+# input = torch.randn(2, 2)
+# output = m(input)
+# print(output)
+# import numpy as np
+# speed = 0.0
+# accel = np.array([1.00], dtype=np.float)
+# speed += accel
+# print(speed, type(speed))

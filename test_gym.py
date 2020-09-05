@@ -13,6 +13,7 @@ import random
 # }
 args = {
     'step_length': 1,
+    'mode': 'gui'
 }
 env = gym.make('gym_sumo:sumo-v0', **args)
 
