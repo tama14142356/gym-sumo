@@ -139,26 +139,13 @@ class Graph:
         return ans
 
     # 基本としてはcurEdgeIndexから接続されているEdgeの情報を返す
-    # ただし、現在の車線(curLaneIndex)、行きたい方向(nextDirection)、接続先(toEdgeID)
-    # のいずれかと一致するもののうち一つを返す。
-    # 基本優先度は以下：
-    # 1. toEdgeID
-    # 2. nextDirection
-    # 3. curLaneIndex
-    # 優先順位の意味はNoneでない限り、優先順位の一番高いもの以外は基本的に無視するということ。
-    # toEdgeIDがNoneでないなら、とにかくnextDirectionと一致していようがいまいが、
-    # 関係なくtoEdgeIDと一致するedgeの中の一つを返す。
-    # (ただし、curEdgeに対するtoEdgeは基本的に1対１であるとの想定)
-    # nextDirectionを優先したい場合（接続先がわかっていない場合）toEdgeをNoneにすればその方向に道があるか確認できる
-    # ただし、それが指定した車線から行けるかどうかはわからない。行けるのであれば、優先的にそれを返すが、
-    # ない場合は、違う車線からその方向に道があるのであれば、それを返す。
-    # よって、どうしても車線を一致させたい場合は確認する必要がある。
-    def __getNextInfo(self, curEdgeIndex, curLaneIndex=None,
-                      nextDirection=None, toEdgeID=None):
-        # get process info in the road from curEdge to toEdge
-        if toEdgeID is not None:
-            return self.__getProcessInfo(curEdgeIndex, toEdgeID)
-
+    # ただし、現在の車線(curLaneIndex)、行きたい方向(nextDirection)
+    # がNoneでないもの全てと一致するものを返す。
+    # nextDirectionだけを考慮したい場合は（接続元がわかっていない場合）curLaneIndexをNoneにすれば
+    # あくまでedge単位でその方向に道があるか確認できる
+    # 指定した車線から行けるかどうかも考慮に入れるのであれば、curLaneIndexを指定する。
+    # nextDirectionがNoneになることは想定していない。つまり、この車線から行ける全てまたは一部のedgeと方向を返すことは想定していない
+    def __getNextInfo(self, curEdgeIndex, nextDirection, curLaneIndex=None):
         ans = [None, None, nextDirection, curLaneIndex]
         tmp = self.__normalEdgeConnection
         # index error or not supported
@@ -167,46 +154,54 @@ class Graph:
                 or not self.__isDirection):
             return ans
 
+        if curLaneIndex in tmp[curEdgeIndex]:
+            if nextDirection in tmp[curEdgeIndex][curLaneIndex]:
+                edges = tmp[curEdgeIndex][curLaneIndex][nextDirection][0]
+                ans[0] = edges['to']
+                ans[1] = edges['via']
+                return ans
+            else:
+                if curLaneIndex is not None:
+                    return ans
+
         for lane in tmp[curEdgeIndex]:
             if nextDirection in tmp[curEdgeIndex][lane]:
                 edges = tmp[curEdgeIndex][lane][nextDirection][0]
                 ans[0] = edges['to']
                 ans[1] = edges['via']
                 ans[3] = lane
-                if lane == curLaneIndex:
-                    break
         return ans
 
     def getNextInfoAll(self, curEdgeID, curLaneIndex=None,
                        nextDirection=None, toEdgeID=None):
         curEdgeIndex = self.getEdgeIndex(curEdgeID)
-        tmp = self.__getNextInfo(curEdgeIndex, curLaneIndex,
-                                 nextDirection, toEdgeID)
+        # get process info in the road from curEdge to toEdge
+        if toEdgeID is not None:
+            tmp = self.__getProcessInfo(curEdgeIndex, toEdgeID)
+        else:
+            tmp = self.__getNextInfo(curEdgeIndex, nextDirection, curLaneIndex)
         return tmp[0], tmp[1], tmp[2], tmp[3]
 
-    def getNextInfoFrom(self, curEdgeID, curLaneIndex=None,
-                        nextDirection=None, toEdgeID=None):
-        _, _, _, ans = self.getNextInfoAll(curEdgeID, curLaneIndex,
-                                           nextDirection, toEdgeID)
-        return ans
+    def getNextInfoFrom(self, curEdgeID, nextDirection=None, toEdgeID=None):
+        ans = (self.getNextInfoAll(curEdgeID, None,
+                                   nextDirection, toEdgeID))
+        return ans[3]
 
-    def getNextInfoDirect(self, curEdgeID, curLaneIndex=None,
-                          nextDirection=None, toEdgeID=None):
-        _, _, ans, _ = self.getNextInfoAll(curEdgeID, curLaneIndex,
-                                           nextDirection, toEdgeID)
-        return ans
+    def getNextInfoDirect(self, curEdgeID, toEdgeID, curLaneIndex=None):
+        ans = (self.getNextInfoAll(curEdgeID, curLaneIndex,
+                                   None, toEdgeID))
+        return ans[2]
 
     def getNextInfoVia(self, curEdgeID, curLaneIndex=None,
                        nextDirection=None, toEdgeID=None):
-        _, ans, _, _ = self.getNextInfoAll(curEdgeID, curLaneIndex,
-                                           nextDirection, toEdgeID)
-        return ans
+        ans = (self.getNextInfoAll(curEdgeID, curLaneIndex,
+                                   nextDirection, toEdgeID))
+        return ans[1]
 
-    def getNextInfoTo(self, curEdgeID, curLaneIndex=None,
-                      nextDirection=None, toEdgeID=None):
-        ans, _, _, _ = self.getNextInfoAll(curEdgeID, curLaneIndex,
-                                           nextDirection, toEdgeID)
-        return ans
+    def getNextInfoTo(self, curEdgeID, nextDirection, curLaneIndex=None):
+        ans = (self.getNextInfoAll(curEdgeID, curLaneIndex,
+                                   nextDirection, None))
+        return ans[0]
 
     def setNormalEdgeConnection(self, root=None):
         """
