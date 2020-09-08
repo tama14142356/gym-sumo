@@ -60,19 +60,29 @@ class SumoExtraHardEnv(gym.Env):
                                             shape=(np.shape(self.observation)))
         self.reward_range = [(-5, 10) for i in range(carnum)]
 
-    def _isDone(self):
+    def _isDone(self, vehID):
+        removeList = self.curVehicle.getRemoveList()
+        if vehID in removeList:
+            return True
+        return False
+
+    def _isDones(self):
         removeList = self.curVehicle.getRemoveList()
         removeNum = len(removeList)
         step = traci.simulation.getTime()
         vList = traci.vehicle.getIDList()
         vnum = len(vList)
+        ans = [False] * self.__carnum
         if self.__carnum <= removeNum:
-            return True
+            return [True] * self.__carnum
         elif step >= self.__simulation_end:
-            return True
+            return [True] * self.__carnum
         elif vnum <= 0:
-            return True
-        return False
+            return [True] * self.__carnum
+        else:
+            for i, vehID in enumerate(vList):
+                ans[i] = self._isDone(vehID)
+        return ans
 
     def step(self, action):
         # calculate vehicle info in current step
@@ -90,7 +100,7 @@ class SumoExtraHardEnv(gym.Env):
             # tmp = self._isDone(vehID)
             # isDone[i] = tmp
         traci.simulationStep()
-        isDone = self._isDone()
+        isDone = self._isDones()
         self.curVehicle.setInValid()
         observation = self.observation()
         reward = self.reward(isTakeAction, action)
@@ -281,7 +291,8 @@ class SumoExtraHardEnv(gym.Env):
             return False
         curEdgeID = traci.lane.getEdgeID(curLaneID)
         if action[0] == STOP:
-            self.curVehicle.setCurAccel(vehID, -curSpeed, vehIndex=vehIndex)
+            self.curVehicle.setCurAccel(
+                vehID, -curSpeed * self.__stepLength, vehIndex=vehIndex)
             isTake = True
         else:
             direction = DIRECTION[action[0]]

@@ -377,11 +377,13 @@ class CurVehicle:
         accel = traci.vehicle.getAccel(vehID) * accelRate
         decel = traci.vehicle.getDecel(vehID) * accelRate
         futureAccel = accel if accelRate >= 0 else decel
+        futureAccel *= self.__stepLength
 
         # calculate future speed
         curSpeed = self.getCurSpeed(vehID, vehIndex=vehIndex)
         futureSpeed = curSpeed + futureAccel
-        futureAccel = -curSpeed if futureSpeed < 0 else futureAccel
+        futureAccel = (-curSpeed
+                       * self.__stepLength if futureSpeed < 0 else futureAccel)
         futureSpeed = 0.0 if futureSpeed < 0 else futureSpeed
 
         # set future accel
