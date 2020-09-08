@@ -91,19 +91,29 @@ class SumoEnv(gym.Env):
                                             shape=(np.shape(self.observation)))
         self.reward_range = [(-5, 10) for i in range(carnum)]
 
-    def _isDone(self):
+    def _isDone(self, vehID):
+        removeList = self.__removeIDList
+        if vehID in removeList:
+            return True
+        return False
+
+    def _isDones(self):
         removeList = self.__removeIDList
         removeNum = len(removeList)
         step = traci.simulation.getTime()
         vList = traci.vehicle.getIDList()
         vnum = len(vList)
+        ans = [False] * self.__carnum
         if self.__carnum <= removeNum:
-            return True
+            return [True] * self.__carnum
         elif step >= self.__simulation_end:
-            return True
+            return [True] * self.__carnum
         elif vnum <= 0:
-            return True
-        return False
+            return [True] * self.__carnum
+        else:
+            for i, vehID in enumerate(vList):
+                ans[i] = self._isDone(vehID)
+        return ans
 
     def step(self, action):
         # determine next step action
@@ -314,7 +324,12 @@ class SumoEnv(gym.Env):
         if vehID in removedList:
             return False
         curSpeed = traci.vehicle.getSpeed(vehID)
-        futureSpeed = curSpeed + action[1][0]
+        accelRate = action[1][0]
+        accel = traci.vehicle.getAccel(vehID) * accelRate
+        decel = traci.vehicle.getDecel(vehID) * accelRate
+        futureAccel = accel if accelRate >= 0 else decel
+        futureAccel *= self.__stepLength
+        futureSpeed = curSpeed + futureAccel
         isJunction = self.isJunction(vehID)
         if action[0] == STOP:
             futureSpeed = 0.0
@@ -336,7 +351,7 @@ class SumoEnv(gym.Env):
                     if routeIndex + 1 < len(route):
                         toEdgeID = route[routeIndex + 1]
                         preEdgeID = route[routeIndex]
-                        direct = self.__graph.getnextInfoDirect(
+                        direct = self.__graph.getNextInfoDirect(
                             curEdgeID=preEdgeID, toEdgeID=toEdgeID)
                         if direct == direction:
                             isTake = True
@@ -358,7 +373,7 @@ class SumoEnv(gym.Env):
                 return False
             # 初期位置なので、この交差点もはじめのedgeの一部とみなす。
             routeIndex = traci.vehicle.getRouteIndex(vehID)
-            laneID = route[routeIndex]
+            laneID = route[routeIndex] + '_0'
             roadLength += traci.lane.getLength(laneID)
         futureLanePos = curLanePos + futureSpeed * self.__stepLength
         if futureLanePos > roadLength:
