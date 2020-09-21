@@ -284,11 +284,15 @@ def takeAction():
         # preaccel[index] = futureaccel[index]
         # pos2 = pos + vnext
         # 普通の方法
-        under = max(-4.5, -speed)
-        futureAccel = random.uniform(under, acc)
+        # under = max(-4.5, -speed)
+        futureAccel = random.uniform(-decel, acc)
         vnext = speed + futureAccel
         traci.vehicle.setSpeed(v, vnext)
-        # traci.vehicle.moveTo(v, laneID, pos2)
+        if vnext < 0:
+            # back action
+            time = traci.simulation.getDeltaT()
+            postmp = pos + vnext * time
+            traci.vehicle.moveTo(v, laneID, postmp)
         if v == v_list[0]:
             print(v, index, decel, "maxaccel", acc, "pos", pos,
                   "lanelen", lanelen, "vnext", vnext, "time", time,
@@ -327,27 +331,20 @@ def main(sumocfg):
     #     for link in links:
     #         print(link)
 
-    print("testetset222")
     # traci.simulationStep()
-    print("testetset")
     v_list = traci.vehicle.getIDList()
     # if len(v_list) > 0:
     #     showInfo(v_list[0])
-    print("testetset3333")
     step = traci.simulation.getTime()
-    print(step)
     traci.simulationStep()
     step = traci.simulation.getTime()
-    print(step, "step2")
     # if len(v_list) > 0:
     #     showInfo(v_list[0])
     while step < 60 * 60 * 24:  # 1day
-        print("testetset4444")
         v_list = traci.vehicle.getIDList()
         for v in v_list:
             showInfo(v)
         takeAction()
-        print("take action")
         # if len(v_list) > 0:
         #     showInfo(v_list[0])
         # if step == 6:
@@ -359,7 +356,6 @@ def main(sumocfg):
         traci.simulationStep()
         step = traci.simulation.getTime()
         v_list = traci.vehicle.getIDList()
-        print("simulation step")
         if len(v_list) == 0:
             traci.close()
             break

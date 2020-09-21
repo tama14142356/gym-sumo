@@ -23,7 +23,8 @@ args = {
 env = gym.make('gym_sumo:sumo-v0', **args)
 direction = [0, 6]
 print("observation space num: ", env.observation_space.shape[0])
-print("action space num: ", env.action_space[0][0].n, env.action_space[0][1].shape[0])
+print("action space num: ",
+      env.action_space[0][0].n, env.action_space[0][1].shape[0])
 
 pobs = env.reset()
 done = False
