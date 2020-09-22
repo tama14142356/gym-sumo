@@ -83,14 +83,10 @@ class SumoEnv(gym.Env):
         self.action_space = []
         for i in range(carnum):
             self.action_space.append(
-                spaces.Tuple(
-                    (spaces.Discrete(7),
-                     spaces.Box(low=np.array([-1.0], dtype=np.float32),
-                                high=np.array([1.0], dtype=np.float32),
-                                dtype=np.float32))))
-        self.observation_space = spaces.Box(low=1,
-                                            high=initGraph.num_edges,
-                                            shape=(np.shape(self.observation)))
+                spaces.Tuple((spaces.Discrete(7),
+                              spaces.Box(low=-1, high=1, shape=(1, )))))
+        self.observation_space = spaces.Box(
+            low=1, high=initGraph.num_edges, shape=(np.shape(self.observation)))
         self.reward_range = [(-5, 10) for i in range(carnum)]
 
     def _isDone(self, vehID):
@@ -210,6 +206,10 @@ class SumoEnv(gym.Env):
             tmp = []
             if obs.x is not None:
                 tmp.append(obs.x.numpy().tolist())
+            if obs.y is not None:
+                tmp.append(obs.y.numpy().tolist())
+            if obs.edge_index is not None:
+                tmp.append(obs.edge_index.numpy().tolist())
             if obs.edge_attr is not None:
                 tmp.append(obs.edge_attr.numpy().tolist())
             if obs.pos is not None:
@@ -229,7 +229,7 @@ class SumoEnv(gym.Env):
             v_info.append(traci.vehicle.getRoadID(self.vehID))
             observation.append(v_info)
         self.observation = np.array(observation)
-        return self.data
+        return self.observation
 
     def getData(self, observation=None):
         if observation is None:
@@ -242,20 +242,28 @@ class SumoEnv(gym.Env):
         pos = None
         norm = None
         face = None
+        i = 0
         if obs.x is not None:
-            x = torch.tensor(observation[0], dtype=torch.float)
+            x = torch.tensor(observation[i], dtype=torch.float)
+            i += 1
         if obs.y is not None:
-            y = torch.tensor(observation[1], dtype=torch.float)
+            y = torch.tensor(observation[i], dtype=torch.float)
+            i += 1
         if obs.edge_index is not None:
-            edge_index = torch.tensor(observation[2], dtype=torch.long)
+            edge_index = torch.tensor(observation[i], dtype=torch.long)
+            i += 1
         if obs.edge_attr is not None:
-            edge_attr = torch.tensor(observation[3], dtype=torch.float)
+            edge_attr = torch.tensor(observation[i], dtype=torch.float)
+            i += 1
         if obs.pos is not None:
-            pos = torch.tensor(observation[4], dtype=torch.float)
+            pos = torch.tensor(observation[i], dtype=torch.float)
+            i += 1
         if obs.norm is not None:
-            norm = torch.tensor(observation[5], dtype=torch.float)
+            norm = torch.tensor(observation[i], dtype=torch.float)
+            i += 1
         if obs.face is not None:
-            face = torch.tensor(observation[6], dtype=torch.long)
+            face = torch.tensor(observation[i], dtype=torch.long)
+            i += 1
         data = Data(x=x, y=y, edge_attr=edge_attr,
                     edge_index=edge_index, pos=pos, norm=norm, face=face)
         return data
