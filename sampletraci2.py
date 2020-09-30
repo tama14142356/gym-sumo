@@ -161,7 +161,7 @@ def showInfo(v):
     decel2 = traci.vehicle.getApparentDecel(v)
     bestLane = traci.vehicle.getBestLanes(v)
     drive = traci.vehicle.getDrivingDistance(v, current_edge, pos, laneindex)
-    drive2 = traci.vehicle.getDrivingDistance2D(v, v_x, v_y)
+    # drive2 = traci.vehicle.getDrivingDistance2D(v, v_x, v_y)
     emergDecel = traci.vehicle.getEmergencyDecel(v)
     follow = traci.vehicle.getFollower(v)
     laneChange = traci.vehicle.getLaneChangeState(v, 0)
@@ -196,7 +196,7 @@ def showInfo(v):
     vclass = traci.vehicle.getVehicleClass(v)
     via = traci.vehicle.getVia(v)
     wait = traci.vehicle.getWaitingTime(v)
-    pos2 = traci.simulation.convert2D(current_edge, pos, laneindex)
+    # pos2 = traci.simulation.convert2D(current_edge, pos, laneindex)
     links = traci.lane.getLinks(laneID)
     shape = traci.lane.getShape(laneID)
     route = traci.vehicle.getRoute(v)
@@ -221,11 +221,13 @@ def showInfo(v):
           "laneID", laneID, "laneindex", laneindex, "len", lanelen,
           "pos", pos, "v_x", v_x, "v_y", v_y, "angle", angle, "dis", dis,
           "max_accel", acc, "cur_accel", acc2, "max_decel", decel,
-          "position", pos2, "link", links, "connet", connect, "foes", foesList,
+          #   "position", pos2, "link", links, "connet", connect, "foes", foesList,
+          "link", links, "connet", connect, "foes", foesList,
           "shape", shape, "step", step, "accumlate", accumulate, "action_stp",
           action_stp, "action_time", action_time, "travel", travel, "allsub",
           allsub, "allow", allow, "subresult", subresult, "decel2", decel2,
-          "bestlane", bestLane, "drive", drive, "drive2", drive2,
+        #   "bestlane", bestLane, "drive", drive, "drive2", drive2,
+          "bestlane", bestLane, "drive", drive,
           "emergeDecel", emergDecel, "follow", follow, "lanechange",
           laneChange, "lanechangepretty", laneChangePretty, "lateratLanepos",
           lateralLanePos, "lateralSpeed", lateralSpeed, "leader", leader,
@@ -340,8 +342,10 @@ def main(sumocfg):
     step = traci.simulation.getTime()
     # if len(v_list) > 0:
     #     showInfo(v_list[0])
-    while step < 60 * 60 * 24:  # 1day
+    while True:  # 1day
         v_list = traci.vehicle.getIDList()
+        if len(v_list) <= 0:
+            break
         for v in v_list:
             showInfo(v)
         takeAction()

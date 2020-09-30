@@ -15,12 +15,17 @@ import numpy as np
 carnum = 100
 args = {
     'step_length': 0.01,
-    'mode': 'gui',
+    'mode': 'cui',
     'carnum': carnum
 }
 
 # env = gym.make('gym_sumo:sumo-extrahard-v0', **args)
-env = gym.make('gym_sumo:sumo-v0', **args)
+# env = gym.make('gym_sumo:sumo-v0', **args)
+env = gym.make('gym_sumo:sumo-light-v0', **args)
+print("numpy: ", env.observation)
+# print("original graph  x: ", env.data.x, "\nedge_index: ",
+#       env.data.edge_index, "\nedge_attr: ", env.data.edge_attr,
+#       "\npos: ", env.data.pos)
 direction = [0, 6]
 print("observation space num: ", env.observation_space.shape[0])
 print("action space num: ",
