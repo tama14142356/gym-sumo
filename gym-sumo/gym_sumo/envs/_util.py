@@ -71,3 +71,15 @@ def isNewTuple(targetList, a, b):
         targetList[a].append(b)
         return True
     return False
+
+
+def _flatten_list(targetList):
+    for element in targetList:
+        if isinstance(element, list):
+            yield from flatten_list(element)
+        else:
+            yield element
+
+
+def flatten_list(targetList):
+    return list(_flatten_list(targetList))

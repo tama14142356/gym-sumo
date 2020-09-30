@@ -19,7 +19,7 @@ import numpy as np
 import torch
 from torch_geometric.data import Data
 from gym_sumo.envs._graph import Graph
-from gym_sumo.envs._util import randomTuple
+from gym_sumo.envs._util import randomTuple, flatten_list
 
 # action
 STRAIGHT = 0
@@ -72,21 +72,16 @@ class SumoEnv(gym.Env):
         self.__simulation_end = simulation_end
         self.__isgraph = isgraph
         self.__graph = Graph(self.__netpath)
-        initGraph = self.__graph.getGraph()
-
-        if not self.__isgraph:
-            self.initiallizeGraph()
-
         self.routeEdge = []
         self.observation = self.reset()
-        # 5action and accel, brake
+        # 7action and accel, brake
         self.action_space = []
         for i in range(carnum):
             self.action_space.append(
                 spaces.Tuple((spaces.Discrete(7),
                               spaces.Box(low=-1, high=1, shape=(1, )))))
         self.observation_space = spaces.Box(
-            low=1, high=initGraph.num_edges, shape=(np.shape(self.observation)))
+            low=0, high=sys.float_info.max, shape=(np.shape(self.observation)))
         self.reward_range = [(-5, 10) for i in range(carnum)]
 
     def _isDone(self, vehID):
@@ -131,6 +126,7 @@ class SumoEnv(gym.Env):
 
     def reset(self):
         mode = self.__mode
+        self.__is_init = True
         # reset
         self.close()
         self.__graph = Graph(self.__netpath)
@@ -141,6 +137,7 @@ class SumoEnv(gym.Env):
         self.__removeIDList.clear()
         self.addCar(self.__carnum)
         self.observation = self._observation()
+        self.__is_init = False
         traci.simulationStep()
         return self.observation
 
@@ -190,82 +187,96 @@ class SumoEnv(gym.Env):
         return rewardList
 
     def _observation(self):
-        observation = None
-        vehIDList = traci.vehicle.getIDList()
-        # print(self.__graph.getGraph(), length)
+        vehIDList = self.__vehIDList
         if self.__isgraph:
-            originGraph = self.__graph.getGraph()
             for vehID in vehIDList:
                 v_info = {}
+                v_info['ID'] = vehID
                 v_info['pos'] = list(traci.vehicle.getPosition(vehID))
                 v_info['speed'] = [traci.vehicle.getSpeed(vehID)]
-                self.__graph.addNode(vehID,
-                                     traci.vehicle.getRoadID(vehID), v_info)
-            # print(self.__graph.graph, "obs")
+                v_info['exist'] = (v_info['speed'] != tc.INVALID_DOUBLE_VALUE)
+                v_info['curEdgeID'] = traci.vehicle.getRoadID(vehID)
+                road = traci.vehicle.getRoute(vehID)
+                roadIndex = traci.vehicle.getRouteIndex(vehID)
+                v_info['nextEdgeID'] = None
+                if len(road) > roadIndex:
+                    v_info['nextEdgeID'] = road[roadIndex + 1]
+                if self.__is_init:
+                    self.__graph.addNode(v_info)
+                else:
+                    self.__graph.updateNode(v_info)
             obs = self.__graph.getGraph()
-            tmp = []
-            if obs.x is not None:
-                tmp.append(obs.x.numpy().tolist())
-            if obs.y is not None:
-                tmp.append(obs.y.numpy().tolist())
-            if obs.edge_index is not None:
-                tmp.append(obs.edge_index.numpy().tolist())
-            if obs.edge_attr is not None:
-                tmp.append(obs.edge_attr.numpy().tolist())
-            if obs.pos is not None:
-                tmp.append(obs.pos.numpy().tolist())
-            if obs.norm is not None:
-                tmp.append(obs.norm.numpy().tolist())
-            if obs.face is not None:
-                tmp.append(obs.face.numpy().tolist())
-            observation = tmp
+            self.observation = self.changeNumpy(obs)
             self.data = obs
-            self.__graph.setGraph(originGraph)
-        else:
-            observation = [self.nodelist, self.edgelist]
-            v_info = []
-            v_info.append(list(traci.vehicle.getPosition(self.vehID)))
-            v_info.append(traci.vehicle.getSpeed(self.vehID))
-            v_info.append(traci.vehicle.getRoadID(self.vehID))
-            observation.append(v_info)
-        self.observation = np.array(observation)
         return self.observation
 
-    def getData(self, observation=None):
-        if observation is None:
+    def changeNumpy(self, data):
+        """convert from Data object to one dimension numpy array
+
+        Args:
+            data (Data): graph data
+
+        Returns:
+            ndarray: numpy array of graph data
+        """
+        tmp = []
+        if data.x is not None:
+            tmp.append(data.x.numpy().tolist())
+        if data.edge_index is not None:
+            tmp.append(data.edge_index.numpy().tolist())
+        if data.edge_attr is not None:
+            tmp.append(data.edge_attr.numpy().tolist())
+        if data.pos is not None:
+            tmp.append(data.pos.numpy().tolist())
+        tmp_observation = flatten_list(tmp)
+        observation = np.array(tmp_observation)
+        return observation
+
+    def getData(self, obsdata=None):
+        if obsdata is None:
             return self.data
+        data = Data()
         obs = self.data
-        x = None
-        y = None
-        edge_index = None
-        edge_attr = None
-        pos = None
-        norm = None
-        face = None
-        i = 0
-        if obs.x is not None:
-            x = torch.tensor(observation[i], dtype=torch.float)
-            i += 1
-        if obs.y is not None:
-            y = torch.tensor(observation[i], dtype=torch.float)
-            i += 1
-        if obs.edge_index is not None:
-            edge_index = torch.tensor(observation[i], dtype=torch.long)
-            i += 1
-        if obs.edge_attr is not None:
-            edge_attr = torch.tensor(observation[i], dtype=torch.float)
-            i += 1
-        if obs.pos is not None:
-            pos = torch.tensor(observation[i], dtype=torch.float)
-            i += 1
-        if obs.norm is not None:
-            norm = torch.tensor(observation[i], dtype=torch.float)
-            i += 1
-        if obs.face is not None:
-            face = torch.tensor(observation[i], dtype=torch.long)
-            i += 1
-        data = Data(x=x, y=y, edge_attr=edge_attr,
-                    edge_index=edge_index, pos=pos, norm=norm, face=face)
+        tmpobs = obsdata.numpy().tolist()
+        observation = np.array(flatten_list(tmpobs))
+        num_node = obs.num_nodes
+        num_node = 0 if num_node is None else num_node
+        num_node_features = obs.num_node_features
+        num_node_features = 0 if num_node_features is None else num_node_features
+        start = 0
+        end = num_node * num_node_features
+        x_list = [] if start < end else None
+        for i in range(start, end, num_node_features):
+            x = observation[i:i + num_node_features].astype(np.float)
+            x_list.append(x)
+        data.x = torch.tensor(x_list, dtype=torch.float)
+        num_edge = obs.num_edges
+        num_edge = 0 if num_edge is None else num_edge
+        if num_edge > self.__carnum:
+            start = num_node * num_node_features
+            end = start + num_edge
+            src = observation[start:end].astype(np.int64)
+            start = end
+            end = start + num_edge
+            dsc = observation[start:end].astype(np.int64)
+            edge_index = np.array([src, dsc], dtype=np.int64)
+            data.edge_index = torch.tensor(edge_index, dtype=torch.long)
+        num_edge_features = obs.num_edge_features
+        start = end
+        end = start + num_edge * num_edge_features
+        edge_attr = [] if start < end else None
+        for i in range(start, end, num_edge_features):
+            tmp = observation[i:i + num_edge_features]
+            edge_attr.append(tmp)
+        data.edge_attr = torch.tensor(edge_attr, dtype=torch.float)
+        pos_dim = 0 if obs.pos is None else len(obs.pos[0])
+        start = end
+        end = start + num_node * pos_dim
+        pos = [] if start < end else None
+        for i in range(start, end, pos_dim):
+            tmp = observation[i:i + pos_dim]
+            pos.append(tmp)
+        data.pos = torch.tensor(pos, dtype=torch.float)
         return data
 
     def updateAddCar(self):
@@ -343,10 +354,6 @@ class SumoEnv(gym.Env):
             except TraCIException as tr:
                 print(tr)
         return fromEdgeID, toEdgeID
-
-    def initiallizeGraph(self):
-        self.nodelist = list(self.__graph.getGraph().pos.numpy())
-        self.edgelist = self.__graph.getEdges()
 
     def turn(self, vehID, direction, curEdgeID=None):
         if curEdgeID is None:
