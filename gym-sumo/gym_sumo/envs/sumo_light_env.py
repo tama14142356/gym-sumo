@@ -190,27 +190,25 @@ class SumoLightEnv(gym.Env):
         level = 3 + (VISIBLE_NUM * 2)
         for i, neighbor in enumerate(neighborList):
             v_obs = [0.0] * level
-            v_obs_category = [VEHICLE_CATEGORY[VEH_CATEGORY]] * level
-            num = min(len(neighbor), VISIBLE_NUM)
+            v_obs_category = [float(VEHICLE_CATEGORY[VEH_CATEGORY])] * level
+            num = VISIBLE_NUM * 2
             vehID = vehIDList[i]
             speed = traci.vehicle.getSpeed(vehID)
             pos = traci.vehicle.getPosition(vehID)
             v_x, v_y = pos
-            v_obs[0] = speed
-            v_obs[1] = v_x
-            v_obs[2] = v_y
-            v_obs_category[0]
+            v_obs[0], v_obs[1], v_obs[2] = speed, v_x, v_y
+            num_neighbor = len(neighbor)
             for j in range(0, num, 2):
-                if len(neighbor) > 0:
-                    r_x, r_y = neighbor[j]
+                index = j // 2
+                if num_neighbor > index:
+                    veh_index, neighbor_pos = neighbor[index]
+                    r_x, r_y = neighbor_pos
                     category = float(VEHICLE_CATEGORY[VEH_CATEGORY])
                 else:
                     r_x, r_y = 0.0, 0.0
                     category = float(VEHICLE_CATEGORY[NONE_VEH_CATEGORY])
-                v_obs[j + 3] = r_x
-                v_obs[j + 4] = r_y
-                v_obs_category[j + 3] = category
-                v_obs_category[j + 4] = category
+                v_obs[j + 3], v_obs[j + 4] = r_x, r_y
+                v_obs_category[j + 3], v_obs_category[j + 4] = category, category
             observation.append([v_obs, v_obs_category])
         self.observation = observation
         return self.observation
@@ -417,9 +415,12 @@ class SumoLightEnv(gym.Env):
         relative_pos = [x - y for (x, y) in zip(target, pos)]
         return dis <= r, relative_pos
 
-    def getNeighbor(self, posList, centralpos, visible_range):
+    def getNeighbor(self, posList, central_index, visible_range):
         neighborList = []
+        centralpos = posList[central_index]
         for i, pos in enumerate(posList):
+            if i == central_index:
+                continue
             x, y = pos
             if x == -np.inf or y == -np.inf:
                 isexist, dis = False, np.inf
@@ -432,10 +433,10 @@ class SumoLightEnv(gym.Env):
 
     def getNeighborList(self, posList, visible_range):
         neighborList = []
-        for pos in posList:
+        for index, pos in enumerate(posList):
             x, y = pos
             if x != -np.inf and y != -np.inf:
-                tmp = self.getNeighbor(posList, pos, visible_range)
+                tmp = self.getNeighbor(posList, index, visible_range)
             else:
                 tmp = []
             neighborList.append(tmp)
