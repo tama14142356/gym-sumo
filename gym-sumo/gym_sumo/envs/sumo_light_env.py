@@ -1,7 +1,7 @@
 import gym
 # from gym import error, spaces, utils
 from gym import spaces, error
-# from gym.utils import seeding
+from gym.utils import seeding
 
 import os
 import sys
@@ -65,8 +65,8 @@ VEH_SIGNALS = {
 
 class SumoLightEnv(gym.Env):
 
-    def __init__(self, isgraph=True, area='nishiwaseda', carnum=100,
-                 mode='gui', step_length=0.01, simulation_end=100):
+    def __init__(self, isgraph=True, area='nishiwaseda', carnum=100, mode='gui',
+                 step_length=0.01, simulation_end=100, seed=None):
         sumoConfig = 'sumo_configs/' + area
         sumoMap = os.path.join(os.path.dirname(__file__), sumoConfig)
         self.__netpath = os.path.join(sumoMap, 'osm.net.xml')
@@ -80,6 +80,7 @@ class SumoLightEnv(gym.Env):
         self.__stepLength = step_length
         self.__simulation_end = simulation_end
         self.__isgraph = isgraph
+        self.__seed = self.seed(seed)
         self.__graph = Graph(self.__netpath)
         self.routeEdge = []
         self.observation = self.reset()
@@ -155,6 +156,10 @@ class SumoLightEnv(gym.Env):
         except traci.exceptions.FatalTraCIError as ci:
             print(ci)
 
+    def seed(self, seed=None):
+        self.np_random, seed = seeding.np_random(seed)
+        return [seed]
+
     def reward(self, isTakeAction):
         v_list = traci.vehicle.getIDList()
         collisionList = traci.simulation.getCollidingVehiclesIDList()
@@ -210,7 +215,7 @@ class SumoLightEnv(gym.Env):
                 v_obs[j + 3], v_obs[j + 4] = r_x, r_y
                 v_obs_category[j + 3], v_obs_category[j + 4] = category, category
             observation.append([v_obs, v_obs_category])
-        self.observation = observation
+        self.observation = np.array(observation, dtype=np.float)
         return self.observation
 
     def updateAddCar(self):
@@ -277,7 +282,7 @@ class SumoLightEnv(gym.Env):
         toEdgeID = None
         for i in range(10):
             # print(i, "test", routeID, "route")
-            edges = randomTuple(0, num_edge, 2, self.routeEdge)
+            edges = randomTuple(0, num_edge, 2, self.routeEdge, self.np_random)
             fromEdgeID = self.__graph.getEdgeID(edges[0])
             toEdgeID = self.__graph.getEdgeID(edges[1])
             try:
