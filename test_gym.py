@@ -16,38 +16,22 @@ carnum = 100
 args = {
     'step_length': 0.01,
     'mode': 'cui',
-    'carnum': carnum
+    # 'carnum': carnum
 }
 
 # env = gym.make('gym_sumo:sumo-extrahard-v0', **args)
 # env = gym.make('gym_sumo:sumo-v0', **args)
 env = gym.make('sumo-light-v0', **args)
-print("numpy: ", env.observation)
-# print("original graph  x: ", env.data.x, "\nedge_index: ",
-#       env.data.edge_index, "\nedge_attr: ", env.data.edge_attr,
-#       "\npos: ", env.data.pos)
-direction = [0, 6]
-print("observation space num: ", env.observation_space.shape)
-print("action space num: ",
-      env.action_space[0][0].n, env.action_space[0][1].shape[0])
+# err_msg = "%r (%s) invalid" % (env.observation, type(env.observation))
+# assert env.observation_space.contains(env.observation), err_msg
+# print(env.action_space.n)
+observation = env.reset()
+for i in range(1000):
+    env.render()
+    action = env.action_space.sample()
+    observation, reward, done, _ = env.step(action)
+    print(i, reward, done)
 
-pobs = env.reset()
-done = False
-while not done:
-    act = []
-    for i in range(carnum):
-        tmp = np.array([random.uniform(0.0, 1.0)], dtype=np.float32)
-        tmp2 = 0
-        act.append((tmp2, tmp))
-    obs, reward, done, _ = env.step(act)
-    print(pobs, act, reward, obs, done)
-    pobs = obs
+    if done:
+        observation = env.reset()
 env.close()
-
-# act = []
-# tmp = np.array([random.uniform(0.0, 1.0)], dtype=np.float32)
-# tmp2 = random.randint(0, 1)
-# tmp2 = direction[tmp2]
-# act.append((tmp2, tmp))
-
-# print(act, tmp, tmp2)

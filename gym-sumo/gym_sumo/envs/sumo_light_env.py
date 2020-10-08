@@ -40,8 +40,8 @@ VISIBLE_NUM = 5
 # category variable(one hot encoding)
 # for vehicle
 VEHICLE_CATEGORY = [0, 1]
-VEH_CATEGORY = 0
-NONE_VEH_CATEGORY = 1
+VEH_CATEGORY = 1
+NONE_VEH_CATEGORY = 0
 
 DIRECTION = ['s', 'T', 'l', 'L', 'r', 'R']
 
@@ -73,7 +73,7 @@ class SumoLightEnv(gym.Env):
 
         self.metadata = {'render.modes': ['human']}
         self.__sumocfg = os.path.join(sumoMap, 'osm.sumocfg')
-        self.__carnum = carnum
+        self.__carnum = 1
         self.__mode = mode
         self.__vehIDList = {}
         self.__removeIDList = []
@@ -85,21 +85,26 @@ class SumoLightEnv(gym.Env):
         self.routeEdge = []
         self.observation = self.reset()
         # 7action and accel, brake
-        self.action_space = []
-        for i in range(carnum):
-            self.action_space.append(
-                spaces.Tuple((spaces.Discrete(7),
-                              spaces.Box(low=-1, high=1, shape=(1, )))))
+        # self.action_space = []
+        # for i in range(carnum):
+        #     self.action_space.append(
+        #         spaces.Tuple((spaces.Discrete(7),
+        #                       spaces.Box(low=-1, high=1, shape=(1, )))))
+        # self.action_space = spaces.Tuple((spaces.Discrete(7),
+        #                                   spaces.Box(low=-1, high=1, shape=(1, ))))
+        # self.action_space = spaces.Box(low=-1, high=1, shape=(1, ))))
+        self.action_space = spaces.Discrete(7)
+        # self.observation_space = spaces.Box(
+        #     low=-np.inf, high=np.inf, dtype=np.float,
+        #     shape=(carnum, 2, 3 + (VISIBLE_NUM * 2)))
         self.observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, dtype=np.float,
-            shape=(carnum, 2, 3 + (VISIBLE_NUM * 2)))
+            low=-np.inf, high=np.inf, dtype=np.float, shape=((3 + (VISIBLE_NUM * 3)), ))
+        self.reward_range = (-1, 1)
         # super(SumoLightEnv, self).__init__()
 
     def _isDone(self, vehID):
         removeList = self.__removeIDList
-        if vehID in removeList:
-            return True
-        return False
+        return vehID in removeList
 
     def _isDones(self):
         removeList = self.__removeIDList
@@ -121,15 +126,27 @@ class SumoLightEnv(gym.Env):
 
     def step(self, action):
         # determine next step action
+        self.updateAddCar()
         isTakeAction = [True] * self.__carnum
-        for i, act in enumerate(action):
-            vehID = list(self.__vehIDList)[i]
-            isTake = self.__takeAction(vehID, act)
-            isTakeAction[i] = isTake
+        if self.__carnum == 1:
+            vehID = list(self.__vehIDList)[0]
+            isTake = self._takeAction(vehID, action)
+            isTakeAction[0] = isTake
+        else:
+            for i, act in enumerate(action):
+                vehID = list(self.__vehIDList)[i]
+                isTake = self._takeAction(vehID, act)
+                isTakeAction[i] = isTake
         traci.simulationStep()
-        isDone = self._isDones()
         self.observation = self._observation()
-        reward = self.reward(isTakeAction)
+        if self.__carnum == 1:
+            reward = self.reward(isTakeAction)[0]
+        else:
+            reward = self.reward(isTakeAction)
+        if self.__carnum == 1:
+            isDone = self._isDone(vehID)
+        else:
+            isDone = self._isDones()
         return self.observation, reward, isDone, {}
 
     def reset(self):
@@ -141,7 +158,10 @@ class SumoLightEnv(gym.Env):
         self._initSimulator(mode=mode, step_length=self.__stepLength)
         self.__vehIDList.clear()
         self.__removeIDList.clear()
-        self.addCar(self.__carnum)
+        if self.__carnum == 1:
+            self.addCar(100)
+        else:
+            self.addCar(self.__carnum)
         self.observation = self._observation()
         traci.simulationStep()
         return self.observation
@@ -165,46 +185,74 @@ class SumoLightEnv(gym.Env):
         collisionList = traci.simulation.getCollidingVehiclesIDList()
         rewardList = [0] * self.__carnum
         removedList = self.__removeIDList
-        for i, vehID in enumerate(self.__vehIDList):
+        if self.__carnum == 1:
+            v_list = list(self.__vehIDList)
+            vehID = v_list[0]
             reward = 0
-            if vehID in v_list and vehID not in removedList:
-                if isTakeAction[i]:
+            if vehID not in removedList:
+                if isTakeAction[0]:
                     if vehID in collisionList:
+                        self.__removeIDList.append(vehID)
                         reward = -1
                 else:
-                    reward -= 1
+                    reward = -1
                     traci.vehicle.remove(vehID, tc.REMOVE_VAPORIZED)
                     self.__removeIDList.append(vehID)
-            elif vehID in removedList:
-                if isTakeAction[i]:
-                    reward = 1
+            else:
+                if isTakeAction[0]:
                     traci.vehicle.remove(vehID, tc.REMOVE_VAPORIZED)
-            rewardList.append(reward)
+                    reward = 1
+            rewardList[0] = reward
+        else:
+            for i, vehID in enumerate(self.__vehIDList):
+                reward = 0
+                if vehID in v_list and vehID not in removedList:
+                    if isTakeAction[i]:
+                        if vehID in collisionList:
+                            self.__removeIDList.append(vehID)
+                            reward = -1
+                    else:
+                        reward = -1
+                        traci.vehicle.remove(vehID, tc.REMOVE_VAPORIZED)
+                        self.__removeIDList.append(vehID)
+                elif vehID in removedList:
+                    if isTakeAction[i]:
+                        reward = 1
+                        traci.vehicle.remove(vehID, tc.REMOVE_VAPORIZED)
+                rewardList[i] = reward
         return rewardList
 
     def _observation(self):
-        vehIDList = traci.vehicle.getIDList()
         posList = []
-        for vehID in vehIDList:
+        if self.__carnum == 1:
+            vehIDList = list(self.__vehIDList)
+            vehID = vehIDList[0]
             pos = traci.vehicle.getPosition(vehID)
             if pos[0] == tc.INVALID_DOUBLE_VALUE or pos[1] == tc.INVALID_DOUBLE_VALUE:
                 pos[0], pos[1] = -np.inf, -np.inf
             posList.append(pos)
+        else:
+            vehIDList = traci.vehicle.getIDList()
+            for vehID in vehIDList:
+                pos = traci.vehicle.getPosition(vehID)
+                if (pos[0] == tc.INVALID_DOUBLE_VALUE
+                        or pos[1] == tc.INVALID_DOUBLE_VALUE):
+                    pos[0], pos[1] = -np.inf, -np.inf
+                posList.append(pos)
         neighborList = self.getNeighborList(posList, VISIBLE_RANGE)
         observation = []
-        level = 3 + (VISIBLE_NUM * 2)
+        level = 3 + (VISIBLE_NUM * 3)
         for i, neighbor in enumerate(neighborList):
             v_obs = [0.0] * level
-            v_obs_category = [float(VEHICLE_CATEGORY[VEH_CATEGORY])] * level
-            num = VISIBLE_NUM * 2
-            vehID = vehIDList[i]
+            num = VISIBLE_NUM * 3
+            vehID = vehIDList[0]
             speed = traci.vehicle.getSpeed(vehID)
             pos = traci.vehicle.getPosition(vehID)
             v_x, v_y = pos
             v_obs[0], v_obs[1], v_obs[2] = speed, v_x, v_y
             num_neighbor = len(neighbor)
-            for j in range(0, num, 2):
-                index = j // 2
+            for j in range(0, num, 3):
+                index = j // 3
                 if num_neighbor > index:
                     veh_index, neighbor_pos = neighbor[index]
                     r_x, r_y = neighbor_pos
@@ -212,9 +260,10 @@ class SumoLightEnv(gym.Env):
                 else:
                     r_x, r_y = 0.0, 0.0
                     category = float(VEHICLE_CATEGORY[NONE_VEH_CATEGORY])
-                v_obs[j + 3], v_obs[j + 4] = r_x, r_y
-                v_obs_category[j + 3], v_obs_category[j + 4] = category, category
-            observation.append([v_obs, v_obs_category])
+                v_obs[j + 3], v_obs[j + 4], v_obs[j + 5] = r_x, r_y, category
+            observation.append(v_obs)
+        if self.__carnum == 1:
+            observation = v_obs
         self.observation = np.array(observation, dtype=np.float)
         return self.observation
 
@@ -317,7 +366,7 @@ class SumoLightEnv(gym.Env):
                 return False
         return True
 
-    def __takeAction(self, vehID, action):
+    def _takeAction(self, vehID, action):
         isTake = False
         v_list = traci.vehicle.getIDList()
         if vehID not in v_list:
@@ -326,18 +375,19 @@ class SumoLightEnv(gym.Env):
         if vehID in removedList:
             return False
         curSpeed = traci.vehicle.getSpeed(vehID)
-        accelRate = action[1][0]
-        accel = traci.vehicle.getAccel(vehID) * accelRate
-        decel = traci.vehicle.getDecel(vehID) * accelRate
-        futureAccel = accel if accelRate >= 0 else decel
-        futureAccel *= self.__stepLength
+        futureAccel = traci.vehicle.getAcceleration(vehID)
+        # accelRate = action[1][0]
+        # accel = traci.vehicle.getAccel(vehID) * accelRate
+        # decel = traci.vehicle.getDecel(vehID) * accelRate
+        # futureAccel = accel if accelRate >= 0 else decel
+        # futureAccel *= self.__stepLength
         futureSpeed = curSpeed + futureAccel
         isJunction = self.isJunction(vehID)
-        if action[0] == STOP:
-            futureSpeed = 0.0
+        if action == STOP:
+            # futureSpeed = 0.0
             isTake = True
         else:
-            direction = DIRECTION[action[0]]
+            direction = DIRECTION[action]
             if self.couldTurn(vehID, futureSpeed, direction):
                 curEdgeID = None
                 if isJunction:
