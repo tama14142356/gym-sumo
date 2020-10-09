@@ -1,7 +1,7 @@
 import gym
 import gym_sumo
-import random
-import numpy as np
+from gym_sumo.envs.sumo_light_env import RIGHT, LEFT
+import traci
 
 # default
 # args = {
@@ -15,7 +15,7 @@ import numpy as np
 carnum = 100
 args = {
     'step_length': 0.01,
-    'mode': 'cui',
+    # 'mode': 'cui',
     # 'carnum': carnum
 }
 
@@ -26,9 +26,16 @@ env = gym.make('sumo-light-v0', **args)
 # assert env.observation_space.contains(env.observation), err_msg
 # print(env.action_space.n)
 observation = env.reset()
+vehID = 'veh0'
 for i in range(1000):
     env.render()
     action = env.action_space.sample()
+    action = 0
+    signal = traci.vehicle.getSignals(vehID)
+    if signal == 0:
+        action = RIGHT
+    elif signal == 1:
+        action = LEFT
     observation, reward, done, _ = env.step(action)
     print(i, reward, done)
 

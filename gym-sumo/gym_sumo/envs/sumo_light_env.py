@@ -28,6 +28,8 @@ RIGHT = 4
 PARRIGHT = 5
 STOP = 6
 
+STANDARD_SPEED = 100.0 / 9.0
+
 # standard length for adding car
 SPOS = 10.5
 
@@ -380,13 +382,15 @@ class SumoLightEnv(gym.Env):
         # accel = traci.vehicle.getAccel(vehID) * accelRate
         # decel = traci.vehicle.getDecel(vehID) * accelRate
         # futureAccel = accel if accelRate >= 0 else decel
-        # futureAccel *= self.__stepLength
+        futureAccel *= self.__stepLength
         futureSpeed = curSpeed + futureAccel
         isJunction = self.isJunction(vehID)
         if action == STOP:
-            # futureSpeed = 0.0
+            futureSpeed = 0.0
+            traci.vehicle.setSpeed(vehID, futureSpeed)
             isTake = True
         else:
+            traci.vehicle.setSpeed(vehID, STANDARD_SPEED)
             direction = DIRECTION[action]
             if self.couldTurn(vehID, futureSpeed, direction):
                 curEdgeID = None
@@ -417,7 +421,7 @@ class SumoLightEnv(gym.Env):
                 else:
                     if direction == DIRECTION[STRAIGHT]:
                         isTake = True
-        traci.vehicle.setSpeed(vehID, futureSpeed)
+        # traci.vehicle.setSpeed(vehID, futureSpeed)
         return isTake
 
     def couldTurn(self, vehID, futureSpeed, direction=None):
