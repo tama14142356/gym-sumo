@@ -18,6 +18,8 @@ import numpy as np
 
 from gym_sumo.envs._graph import Graph
 from gym_sumo.envs._util import randomTuple, vector_decomposition, get_degree
+from gym_sumo.envs._util import in_many_shape
+from gym_sumo.envs._util import get_rectangle_positions, in_rect, get_base_angle
 
 # action
 STRAIGHT = 0
@@ -65,9 +67,9 @@ VEH_SIGNALS = {
 }
 
 
-class SumoLightEnv(gym.Env):
+class SumoSimpleEnv(gym.Env):
 
-    def __init__(self, isgraph=True, area='nishiwaseda', carnum=100, mode='gui',
+    def __init__(self, isgraph=True, area='nishiwaseda', carnum=100, mode='cui',
                  step_length=0.01, simulation_end=100, seed=None):
         sumoConfig = 'sumo_configs/' + area
         sumoMap = os.path.join(os.path.dirname(__file__), sumoConfig)
@@ -88,10 +90,9 @@ class SumoLightEnv(gym.Env):
         self.observation = self.reset()
         self.vehID = list(self.__vehIDList)[0]
         # steer, accel, brake
-        low = [-np.inf, -1.0, 0.0]
-        high = [np.inf, 1.0, 1.0]
-        self.action_space = spaces.Box(
-            low=low, high=high, shape=(3, ), dtype=np.float32)
+        low = np.array([-np.inf, -1.0, 0.0])
+        high = np.array([np.inf, 1.0, 1.0])
+        self.action_space = spaces.Box(low=low, high=high, dtype=np.float32)
         # self.observation_space = spaces.Box(
         #     low=-np.inf, high=np.inf, dtype=np.float,
         #     shape=(carnum, 2, 3 + (VISIBLE_NUM * 2)))
@@ -108,10 +109,10 @@ class SumoLightEnv(gym.Env):
         # determine next step action
         self._update_add_car()
         vehID = list(self.__vehIDList)[0]
-        self._take_action(vehID, action)
+        reward_state = (self._take_action(vehID, action))
         traci.simulationStep()
         self.observation = self._observation(vehID)
-        reward = self.reward(vehID)
+        reward = self.reward(vehID, reward_state)
         isDone = self._isDone(vehID)
         return self.observation, reward, isDone, {}
 
@@ -125,7 +126,8 @@ class SumoLightEnv(gym.Env):
         self.__vehIDList.clear()
         self.__removeIDList.clear()
         self._add_car(self.__carnum)
-        self.observation = self._observation()
+        vehID = list(self.__vehIDList)[0]
+        self.observation = self._observation(vehID)
         traci.simulationStep()
         return self.observation
 
@@ -143,7 +145,7 @@ class SumoLightEnv(gym.Env):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def reward(self, vehID):
+    def reward(self, vehID, reward_state):
         v_list = traci.vehicle.getIDList()
         collisionList = traci.simulation.getCollidingVehiclesIDList()
         reward = 0
@@ -152,11 +154,17 @@ class SumoLightEnv(gym.Env):
                 self.__removeIDList.append(vehID)
                 reward -= 1
             else:
-                # if 
+                if reward_state[0]:
+                    reward += 0.1
+                else:
+                    reward -= 0.1
+                if reward_state[1]:
+                    reward += 0.2
+                else:
+                    reward -= 0.2
                 # todo
                 # ここで道路に沿って行動しているならプラスの報酬を与えたい
                 # 外れたなら、マイナスの報酬を与えたい
-                reward += 0.1
         return reward
 
     def _observation(self, vehID):
@@ -222,7 +230,8 @@ class SumoLightEnv(gym.Env):
             vehID = 'veh{}'.format(i)
             routeID = 'route{}'.format(i)
             fromEdgeID, toEdgeID = self._generate_route(routeID)
-            veh_element = {'route': routeID, 'start': fromEdgeID, 'goal': toEdgeID}
+            veh_element = {'route': routeID,
+                           'start': fromEdgeID, 'goal': toEdgeID}
             self.__vehIDList[vehID] = veh_element
             start = self.__graph.getEdgeIndex(fromEdgeID)
             if start not in self.routeEdge:
@@ -278,15 +287,33 @@ class SumoLightEnv(gym.Env):
         edgeID = traci.vehicle.getRoadID(vehID)
         lane = traci.vehicle.getLaneIndex(vehID)
         laneID = traci.vehicle.getLaneID(vehID)
-        lane_pos = traci.lane.getShape(laneID)
-        pos_num = len(lane_pos)
-        if pos_num <= 2:
-            # todo
-            # 道路から外れているかどうかの判定をする。
-            # これにより、報酬を決定したいのと、目的地についてるのかも決めたい。
-            pass
-
+        veh_len = traci.vehicle.getLength(vehID)
+        angle = traci.vehicle.getAngle(vehID)
+        rear_x, rear_y = vector_decomposition(veh_len, angle)
+        rear_pos = [cur_x - rear_x, cur_y - rear_y]
+        if len(laneID) <= 0:
+            in_road = False
+            match_degree = False
+        else:
+            lane_pos = traci.lane.getShape(laneID)
+            width = traci.lane.getWidth(laneID)
+            pos_num = len(lane_pos)
+            if pos_num <= 2:
+                # todo
+                # 道路から外れているかどうかの判定をする。
+                # これにより、報酬を決定したいのと、目的地についてるのかも決めたい。
+                degree = get_degree(lane_pos[0], lane_pos[1])
+                road_pos = get_rectangle_positions(
+                    lane_pos[0], lane_pos[1], width)
+                in_road = (in_rect(road_pos, [cur_x, cur_y])
+                           or in_rect(road_pos, rear_pos))
+                match_degree = abs(degree - get_base_angle(angle)) < 0.01
+            else:
+                match_degree = True
+                in_road = (in_many_shape(lane_pos, [cur_x, cur_y])
+                           or in_many_shape(lane_pos, rear_pos))
         traci.vehicle.moveToXY(vehID, edgeID, lane, next_x, next_y, steer, 2)
+        return in_road, match_degree
 
     def _is_exist(self, pos, r, target):
         posx, posy = pos
