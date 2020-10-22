@@ -222,7 +222,9 @@ class SumoSimpleEnv(gym.Env):
             raise AttributeError("not supported mode!!")
         sumoCmd = [sumoCommand, '-c', sumocfg, '--routing-algorithm', routing_alg,
                    '--step-length', str(step_length), '--collision.action', 'remove',
-                   '--collision.check-junctions', str(True), '--tls.all-off', str(True)]
+                   '--collision.check-junctions', 'true', '--tls.all-off', 'true',
+                   '--no-warnings', 'true',
+                   '--no-step-log', 'true', '--duration-log.disable', 'true']
         traci.start(sumoCmd, numRetries=100)
 
     def _add_car(self, carnum):
