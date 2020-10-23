@@ -91,7 +91,9 @@ class SumoSimpleEnv(gym.Env):
         self.__seed = self.seed(seed)
         self.__graph = Graph(self.__netpath)
         self.routeEdge = []
-        self.observation = self.reset()
+        self._init_simulator(mode, step_length=step_length)
+        self._add_car(carnum)
+        # self.observation = self.reset()
         self.vehID = list(self.__vehIDList)[0]
         # steer, accel, brake
         low = np.array([-np.inf, -1.0, 0.0])
@@ -134,15 +136,17 @@ class SumoSimpleEnv(gym.Env):
         return self.observation, reward, isDone, {}
 
     def reset(self):
-        mode = self.__mode
+        # mode = self.__mode
         # reset
-        self.close()
-        self.routeEdge = []
+        # self.close()
+        # self.routeEdge = []
         # traci start & init simulate
-        self._init_simulator(mode=mode, step_length=self.__stepLength)
-        self.__vehIDList.clear()
+        # self._init_simulator(mode=mode, step_length=self.__stepLength)
+        # self.__vehIDList.clear()
         self.__removeIDList.clear()
-        self._add_car(self.__carnum)
+        # self._add_car(self.__carnum)
+        self._remove_car_all()
+        self._update_add_car()
         vehID = list(self.__vehIDList)[0]
         if self.__mode == 'gui':
             viewID = traci.gui.DEFAULT_VIEW
@@ -280,6 +284,11 @@ class SumoSimpleEnv(gym.Env):
         # insert car instantly
         traci.vehicle.moveTo(vehID, laneID, length)
         traci.vehicle.setSpeed(vehID, 0.0)
+
+    def _remove_car_all(self):
+        v_list = traci.vehicle.getIDList()
+        for vehID in v_list:
+            traci.vehicle.remove(vehID)
 
     def _generate_route(self, routeID):
         num_edge = self.__graph.getNum('edge_normal') - 1

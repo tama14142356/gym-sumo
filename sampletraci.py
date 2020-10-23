@@ -58,25 +58,25 @@
 # sumocfg = 'map/data3/osm.sumocfg'
 # # sumocfg = 'map/data3/osm2.sumocfg'
 # main(sumocfg)
-import gym
-# import gym_sumo
-import random
+# import gym
+# # import gym_sumo
+# import random
 
-env = gym.make('gym_sumo:sumo-v0')
-# print("env", env.graph.normalEdgeConnection)
-# env.reset()
-print(env.routeEdge, "route")
-action = []
-for i in range(100):
-    tmp = -1.0 + float(random.randint(0, i))
-    tmp2 = random.randint(0, 4)
-    if i % 10 == 3:
-        tmp2 = 6
-    action.append((tmp2, tmp))
+# env = gym.make('gym_sumo:sumo-v0')
+# # print("env", env.graph.normalEdgeConnection)
+# # env.reset()
+# print(env.routeEdge, "route")
+# action = []
+# for i in range(100):
+#     tmp = -1.0 + float(random.randint(0, i))
+#     tmp2 = random.randint(0, 4)
+#     if i % 10 == 3:
+#         tmp2 = 6
+#     action.append((tmp2, tmp))
 
-env.step(action)
-print(env.render())
-env.close()
+# env.step(action)
+# print(env.render())
+# env.close()
 # for i, edgeID in enumerate(env.graph.normalEdgeIDList):
 #     edgeIndex = env.graph.normalEdgeIDdict[edgeID]
 #     print(edgeID, i, edgeIndex)
@@ -93,3 +93,90 @@ env.close()
 
 # t = Test()
 # t.test()
+import traci
+import traci.constants as tc
+from traci.exceptions import TraCIException
+from gym_sumo.envs._graph import Graph
+from gym_sumo.envs._util import randomTuple
+from gym.utils import seeding
+# import the library
+import sumolib
+# parse the net
+net = sumolib.net.readNet('gym-sumo/gym_sumo/envs/sumo_configs/nishiwaseda/osm.net.xml')
+# retrieve the coordinate of a node based on its ID
+print(net.getNode('1093469771').getCoord())
+# net.getEdge()
+# retrieve the successor node ID of an edge
+nextNodeID = net.getEdge('-98726975').getToNode().getID()
+edge = net.getEdge('-98726975')
+__graph = Graph("gym-sumo/gym_sumo/envs/sumo_configs/nishiwaseda/osm.net.xml")
+__vehIDList = {}
+routeEdge = []
+seed = None
+np_random, seed = seeding.np_random(seed)
+
+
+def addCar(carnum):
+    for i in range(carnum):
+        vehID = 'veh{}'.format(i)
+        routeID = 'route{}'.format(i)
+        __vehIDList[vehID] = routeID
+        fromEdgeID, _ = generateRoute(routeID)
+        start = __graph.getEdgeIndex(fromEdgeID)
+        if start not in routeEdge:
+            routeEdge.append(start)
+            insertCar(vehID, routeID, fromEdgeID)
+
+
+def insertCar(vehID, routeID, startEdgeID=None):
+    if startEdgeID is None:
+        startEdgeID = traci.route.getEdges(routeID)[0]
+    # register car
+    traci.vehicle.add(vehID, routeID)
+    # set speed mode
+    traci.vehicle.setSpeedMode(vehID, 0)
+    laneID = startEdgeID + '_0'
+    length = min(traci.vehicle.getLength(vehID),
+                 traci.lane.getLength(laneID))
+    # insert car instantly
+    traci.vehicle.moveTo(vehID, laneID, length)
+    traci.vehicle.setSpeed(vehID, 11.0)
+
+
+def generateRoute(routeID):
+    num_edge = __graph.getNum('edge_normal') - 1
+    fromEdgeID = None
+    toEdgeID = None
+    for i in range(10):
+        # print(i, "test", routeID, "route")
+        edges = randomTuple(0, num_edge, 2, routeEdge, np_random)
+        fromEdgeID = __graph.getEdgeID(edges[0])
+        toEdgeID = __graph.getEdgeID(edges[1])
+        try:
+            route = traci.simulation.findRoute(fromEdgeID, toEdgeID)
+            if len(route.edges) > 0:
+                traci.route.add(routeID, route.edges)
+                break
+        except TraCIException as tr:
+            print(tr)
+    return fromEdgeID, toEdgeID
+
+
+traci.start(["sumo-gui", "-c",
+             "gym-sumo/gym_sumo/envs/sumo_configs/nishiwaseda/osm.sumocfg"])
+addCar(100)
+veh_list = traci.vehicle.getIDList()
+vehID = veh_list[0]
+traci.vehicle.subscribe(
+    vehID, (tc.VAR_ROAD_ID, tc.VAR_LANEPOSITION, tc.VAR_ANGLE))
+# , tc.VAR_NEIGHBORS
+#  tc.VAR_POSITION, tc.VAR_PREV_SPEED,
+                                # tc.VAR_REMOVED, tc.VAR_ROUTE_INDEX, tc.VAR_SCREENSHOT, tc.VAR_SHAPE, tc.VAR_SIGNALS, tc.VAR_SPEED, tc.VAR_STAGE))
+# , tc.VAR_FOES, tc.VAR_FOLLOWER, tc.VAR_HAS_VIEW, tc.VAR_LANE_ID, tc.VAR_LANE_INDEX, tc.VAR_LEADER,
+#                                 tc.VAR_MOVE_TO,
+print(traci.vehicle.getSubscriptionResults(vehID))
+for step in range(3):
+    print("step", step)
+    traci.simulationStep()
+    print(traci.vehicle.getSubscriptionResults(vehID))
+traci.close()
