@@ -1,7 +1,9 @@
 import gym
+import tempfile
 # from gym import error, spaces, utils
 from gym import spaces, error
 from gym.utils import seeding
+from PIL import Image
 
 import os
 import sys
@@ -75,7 +77,9 @@ class SumoSimpleEnv(gym.Env):
         sumoMap = os.path.join(os.path.dirname(__file__), sumoConfig)
         self.__netpath = os.path.join(sumoMap, 'osm.net.xml')
 
-        self.metadata = {'render.modes': ['human']}
+        self.metadata = {'render.modes': ['human', 'rgb_array']}
+        self.np_img = None
+
         self.__sumocfg = os.path.join(sumoMap, 'osm.sumocfg')
         self.__carnum = carnum
         self.__mode = mode
@@ -105,12 +109,25 @@ class SumoSimpleEnv(gym.Env):
         removeList = self.__removeIDList
         return vehID in removeList
 
+    def screenshot_and_simulation_step(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            viewID = traci.gui.DEFAULT_VIEW
+            img_path = tmpdir + '/screenshot.png'
+            traci.gui.screenshot(viewID, img_path)
+            traci.simulationStep()
+            with open(img_path, 'rb') as f:
+                img = Image.open(f).convert('RGB')
+                self.np_img = np.array(img)
+
     def step(self, action):
         # determine next step action
         self._update_add_car()
         vehID = list(self.__vehIDList)[0]
         reward_state = (self._take_action(vehID, action))
-        traci.simulationStep()
+        if self.__mode == 'gui':
+            self.screenshot_and_simulation_step()
+        else:
+            traci.simulationStep()
         self.observation = self._observation(vehID)
         reward = self.reward(vehID, reward_state)
         isDone = self._isDone(vehID)
@@ -127,12 +144,22 @@ class SumoSimpleEnv(gym.Env):
         self.__removeIDList.clear()
         self._add_car(self.__carnum)
         vehID = list(self.__vehIDList)[0]
+        if self.__mode == 'gui':
+            viewID = traci.gui.DEFAULT_VIEW
+            traci.gui.trackVehicle(viewID, vehID)
+            zoom = traci.gui.getZoom()
+            traci.gui.setZoom(viewID, zoom * 50)
         self.observation = self._observation(vehID)
-        traci.simulationStep()
+        if self.__mode == 'gui':
+            self.screenshot_and_simulation_step()
+        else:
+            traci.simulationStep()
         return self.observation
 
     def render(self, mode='human'):
-        print(self.observation)
+        if self.__mode == 'gui':
+            if mode == 'rgb_array':
+                return self.np_img
 
     def close(self):
         try:
