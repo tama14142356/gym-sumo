@@ -43,7 +43,8 @@ class SumoBaseEnv(gym.Env):
         self._vehID_list = {}
         self._removed_vehID_list = []
         self._step_length = step_length
-        self._simulation_end = simulation_end
+        self._simulation_end = float(simulation_end)
+        self._cur_simulation_start = 0.0
         self._is_graph = isgraph
         self._graph = Graph(self._netpath)
         self._sumo_util = SumoUtil(self._graph, self._step_length)
@@ -71,10 +72,13 @@ class SumoBaseEnv(gym.Env):
     def _is_done(self, vehID):
         removed_list = self._removed_vehID_list
         v_list = traci.vehicle.getIDList()
-        cur_time = traci.simulation.getTime()
+        cur_time = traci.simulation.getTime() - self._cur_simulation_start
         return (vehID in removed_list
-                or v_list in v_list
+                or vehID not in v_list
                 or cur_time >= self._simulation_end)
+
+    def _reset_simulate_time(self, cur_time):
+        self._cur_simulation_start = cur_time
 
     def _init_simulator(self, mode='gui', routing_alg='dijkstra', step_length=0.01):
         sumocfg = self._sumocfg
@@ -112,15 +116,15 @@ class SumoBaseEnv(gym.Env):
         for i, vehID in enumerate(self._vehID_list):
             if vehID in self._removed_vehID_list and vehID not in v_list:
                 routeID = self._vehID_list[vehID]['route']
-                route = traci.route.getEdges(routeID)
-                laneID = route[0] + '_0'
-                laneVehIDList = traci.lane.getLastStepVehicleIDs(laneID)
-                minPos = traci.lane.getLength(laneID)
-                for vehID in laneVehIDList:
-                    lanePos = traci.vehicle.getLanePosition(vehID)
-                    minPos = min(lanePos, minPos)
-                if minPos >= SPOS:
-                    self._insert_car(vehID, routeID, route[0])
+                edgeID = self._vehID_list[vehID]['start']
+                laneID = edgeID + '_0'
+                lane_vehID_list = traci.lane.getLastStepVehicleIDs(laneID)
+                min_pos = traci.lane.getLength(laneID)
+                for vehID in lane_vehID_list:
+                    lane_pos = traci.vehicle.getLanePosition(vehID)
+                    min_pos = min(lane_pos, min_pos)
+                if min_pos >= SPOS:
+                    self._insert_car(vehID, routeID, edgeID)
 
     def _generate_route(self, routeID):
         num_edge = self._graph.getNum('edge_normal') - 1
