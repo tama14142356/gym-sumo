@@ -21,7 +21,7 @@
     <report>
         <verbose value="false"/>
         <duration-log.statistics value="false"/>
-        <no-step-log value="false"/>
+        <no-step-log value="true"/>
     </report>
 
     <gui_only>
