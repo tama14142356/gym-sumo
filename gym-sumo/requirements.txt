@@ -1,13 +1,15 @@
-torch==1.5.0+cpu
-torchvision==0.6.0+cpu
-torch-scatter==latest+cpu
-torch-sparse==latest+cpu
-torch-cluster==latest+cpu
-torch-spline-conv==latest+cpu
-torch-geometric
-matplotlib==3.3.0
-numpy==1.19.1
-gym==0.17.2
+torch==1.6.0+cpu
+torchvision==0.7.0+cpu
+torch-scatter==2.0.5
+torch-sparse==0.6.7
+torch-cluster==1.5.7
+torch-spline-conv==1.2.0
+torch-geometric==1.6.1
+matplotlib==3.3.2
+numpy==1.18.5
+gym==0.17.3
+shapely==1.7.1
+pillow==8.0.0
 
 # for gpu
 # torch==1.6.0
@@ -23,3 +25,4 @@ gym==0.17.2
 # mccabe-0.6.1
 # pycodestyle-2.6.0
 # pyflakes-2.2.0
+ipython==7.18.1
