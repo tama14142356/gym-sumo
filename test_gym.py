@@ -16,15 +16,15 @@ import gym_sumo
 carnum = 1
 args = {
     'step_length': 1,
-    'mode': 'cui',
+    # 'mode': 'cui',
     'carnum': carnum
 }
 
 # env = gym.make('gym_sumo:sumo-extrahard-v0', **args)
 # env = gym.make('gym_sumo:sumo-v0', **args)
 # env = gym.make('sumo-v0', **args)
-# env = gym.make('sumo-light-v0', **args)
-env = gym.make('sumo-simple-v0', **args)
+env = gym.make('sumo-light-v0', **args)
+# env = gym.make('sumo-simple-v0', **args)
 # err_msg = "%r (%s) invalid" % (env.observation, type(env.observation))
 # assert env.observation_space.contains(env.observation), err_msg
 # print(env.action_space.n)
