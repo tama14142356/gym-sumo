@@ -98,42 +98,31 @@ class SumoLightEnv(BaseEnv):
 
         # calculate reward
         reward = 0.0
-        v_list = traci.vehicle.getIDList()
         collision_list = traci.simulation.getCollidingVehiclesIDList()
+        acheived_list = traci.simulation.getArrivedIDList()
         removed_list = self._removed_vehID_list
-        v_list = list(self._vehID_list)
-        vehID = v_list[0]
         if vehID not in removed_list:
-            if is_take:
-                if vehID in collision_list:
-                    self._removed_vehID_list.append(vehID)
-                    reward -= 1.0
-            else:
-                reward -= 1.0
-                traci.vehicle.remove(vehID, tc.REMOVE_VAPORIZED)
+            if vehID in acheived_list:
                 self._removed_vehID_list.append(vehID)
-        else:
-            if is_take:
-                traci.vehicle.remove(vehID, tc.REMOVE_VAPORIZED)
-                reward += 1.0
-        isDone = self._is_done(vehID)
-        return observation, reward, isDone, {}
+                reward = 1.0
+            elif vehID in collision_list or not is_take:
+                traci.vehicle.remove(vehID, tc.REMOVE_TELEPORT)
+                self._removed_vehID_list.append(vehID)
+                reward = -1.0
+
+        isdone = self._is_done(vehID)
+        return observation, reward, isdone, {}
 
     def reset(self):
-        self._update_add_car()
-        self._removed_vehID_list.clear()
         vehID = list(self._vehID_list)[0]
+        self._reposition_car()
+        self._removed_vehID_list.clear()
         if self._mode == 'gui':
             viewID = traci.gui.DEFAULT_VIEW
             traci.gui.trackVehicle(viewID, vehID)
             # zoom = traci.gui.getZoom()
             traci.gui.setZoom(viewID, 5000)
         observation = self._observation(vehID)
-        if self._mode == 'gui':
-            # embed()
-            self.screenshot_and_simulation_step()
-        else:
-            traci.simulationStep()
         return observation
 
     def _observation(self, vehID):
@@ -174,44 +163,33 @@ class SumoLightEnv(BaseEnv):
         cur_speed = traci.vehicle.getSpeed(vehID)
         cur_accel = traci.vehicle.getAcceleration(vehID) * self._step_length
         future_speed = cur_speed + cur_accel
-        isJunction = self._sumo_util._is_Junction(vehID)
+        is_junction = self._sumo_util._is_junction(vehID)
         if action == NO_OP:
             is_take = True
         elif action <= DIRECT_FLAG:
             direction = DIRECTION[action]
+            route_index = traci.vehicle.getRouteIndex(vehID)
+            route = traci.vehicle.getRoute(vehID)
+            cur_edgeID = route[route_index]
             if self._sumo_util._could_turn(vehID, future_speed, direction):
-                curEdgeID = None
-                if isJunction:
-                    routeIndex = traci.vehicle.getRouteIndex(vehID)
-                    route = traci.vehicle.getRoute(vehID)
-                    curEdgeID = route[routeIndex]
-                    if routeIndex >= len(route):
-                        is_take = True
-                        self._removed_vehID_list.append(vehID)
-                    else:
-                        if self._sumo_util.turn(vehID, direction, curEdgeID):
-                            is_take = True
+                if self._sumo_util.turn(vehID, direction, cur_edgeID):
+                    is_take = True
             else:
-                if isJunction:
-                    routeIndex = traci.vehicle.getRouteIndex(vehID)
-                    route = traci.vehicle.getRoute(vehID)
-                    if routeIndex >= len(route):
-                        is_take = True
-                        self._removed_vehID_list.append(vehID)
-                    elif routeIndex + 1 < len(route):
-                        toEdgeID = route[routeIndex + 1]
-                        preEdgeID = route[routeIndex]
-                        direct = self._graph.getNextInfoDirect(
-                            curEdgeID=preEdgeID, toEdgeID=toEdgeID)
-                        if direct == direction:
-                            is_take = True
+                if is_junction and route_index + 1 < len(route):
+                    to_edgeID = route[route_index + 1]
+                    direct = self._graph.getNextInfoDirect(
+                        curEdgeID=cur_edgeID, toEdgeID=to_edgeID)
+                    is_take = direct == direction
         else:
             accel_rate = ACCEL[action - DIRECT_FLAG - 1]
-            accel = traci.vehicle.getAccel(vehID) * accel_rate
-            decel = traci.vehicle.getDecel(vehID) * accel_rate * -1.0
+            accel = traci.vehicle.getAccel(vehID) * abs(accel_rate)
+            decel = traci.vehicle.getDecel(vehID) * abs(accel_rate) * -1.0
             future_accel = accel if accel_rate >= 0 else decel
             future_accel *= self._step_length
             future_speed = cur_speed + future_accel
-            traci.vehicle.setSpeed(vehID, future_speed)
             is_take = True
+            if future_speed < 0.0:
+                future_speed = 0.0
+                is_take = False
+            traci.vehicle.setSpeed(vehID, future_speed)
         return is_take

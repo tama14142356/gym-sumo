@@ -1,5 +1,5 @@
 import gym
-from gym import error, spaces
+from gym import error
 from gym.utils import seeding
 
 import os
@@ -7,7 +7,6 @@ import sys
 
 try:
     import traci
-    from traci import constants as tc
     from traci.exceptions import TraCIException
 except ImportError as e:
     raise error.DependencyNotInstalled(
@@ -24,6 +23,7 @@ from .sumo_util import SumoUtil
 
 AREA = ['nishiwaseda', 'waseda_university']
 SPOS = 10.5
+VEH_LEN = 5.0
 
 
 class SumoBaseEnv(gym.Env):
@@ -92,8 +92,6 @@ class SumoBaseEnv(gym.Env):
         sumoCmd = [sumo_command, '-c', sumocfg, '--routing-algorithm', routing_alg,
                    '--step-length', str(step_length), '--collision.action', 'remove',
                    '--collision.check-junctions', 'true', '--tls.all-off', 'true',
-                   #    '--no-warnings', 'true', '--no-step-log', 'true',
-                   #    '--duration-log.disable', 'true',
                    ]
         traci.start(sumoCmd, numRetries=100)
 
@@ -105,13 +103,15 @@ class SumoBaseEnv(gym.Env):
             veh_element = {'route': routeID,
                            'start': from_edgeID, 'goal': to_edgeID}
             self._vehID_list[vehID] = veh_element
-            start = self._graph.getEdgeIndex(from_edgeID)
             traci.vehicle.add(vehID, routeID)
-            if start not in self._start_edge_list:
-                self._start_edge_list.append(start)
-                self._insert_car(vehID, routeID, from_edgeID)
+            traci.vehicle.setSpeedMode(vehID, 0)
+            traci.vehicle.setSpeed(vehID, 0.0)
 
-    def _update_add_car(self):
+        traci.simulationStep()
+        self._reset_simulate_time(traci.simulation.getTime())
+
+    def _reposition_car(self):
+        traci.simulationStep()
         v_list = traci.vehicle.getIDList()
         for i, vehID in enumerate(self._vehID_list):
             if vehID in self._removed_vehID_list and vehID not in v_list:
@@ -119,12 +119,16 @@ class SumoBaseEnv(gym.Env):
                 edgeID = self._vehID_list[vehID]['start']
                 laneID = edgeID + '_0'
                 lane_vehID_list = traci.lane.getLastStepVehicleIDs(laneID)
-                min_pos = traci.lane.getLength(laneID)
+                min_pos = max(SPOS, traci.lane.getLength(laneID))
                 for vehID in lane_vehID_list:
                     lane_pos = traci.vehicle.getLanePosition(vehID)
                     min_pos = min(lane_pos, min_pos)
                 if min_pos >= SPOS:
-                    self._insert_car(vehID, routeID, edgeID)
+                    traci.vehicle.add(vehID, routeID)
+                    traci.vehicle.setSpeedMode(vehID, 0)
+                    traci.vehicle.setSpeed(vehID, 0.0)
+        traci.simulationStep()
+        self._reset_simulate_time(traci.simulation.getTime())
 
     def _generate_route(self, routeID):
         num_edge = self._graph.getNum('edge_normal') - 1
