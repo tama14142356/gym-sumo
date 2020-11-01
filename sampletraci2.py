@@ -73,37 +73,37 @@ def generateRoute(routeID):
 
 def addCar(carnum):
     for i in range(carnum):
-        v_list = traci.vehicle.getIDList()
-        print(v_list)
+        # v_list = traci.vehicle.getIDList()
+        # print(v_list)
         vehID = 'veh{}'.format(i)
         routeID = 'route{}'.format(i)
         fromedge, _ = generateRoute(routeID)
-        traci.vehicle.add(vehID, routeID, typeID="reroutingType")
+        traci.vehicle.add(vehID, routeID)
         laneID = fromedge + '_{}'.format(0)
         # set speed mode
         traci.vehicle.setSpeedMode(vehID, 0)
         length = traci.vehicle.getLength(vehID)
         length = min(length, traci.lane.getLength(laneID))
-        start = g.getEdgeIndex(fromedge)
-        if len(route[start]) <= 1:
-            traci.vehicle.moveTo(vehID, laneID, length)
-            x, y = traci.vehicle.getPosition(vehID)
-            if vehID == 'veh0':
-                traci.vehicle.moveToXY(vehID, fromedge, 0, x, y, -90.0, 2)
-            elif vehID == 'veh1':
-                traci.vehicle.moveToXY(vehID, fromedge, 0, x, y, 90.0, 2)
-            elif vehID == 'veh2':
-                traci.vehicle.moveToXY(vehID, fromedge, 0, x, y, 0.0, 2)
-            elif vehID == 'veh3':
-                traci.vehicle.moveToXY(vehID, fromedge, 0, x, y, 360.0, 2)
-            elif vehID == 'veh4':
-                traci.vehicle.moveToXY(vehID, fromedge, 0, x, y, 450.0, 2)
-            elif vehID == 'veh5':
-                traci.vehicle.moveToXY(vehID, fromedge, 0, x, y, -450.0, 2)
-            traci.vehicle.setSpeed(vehID, 11.11)
-            vlist = traci.lane.getLastStepVehicleIDs(laneID)
-            # showInfo(vlist[0])
-            print(vlist)
+        # start = g.getEdgeIndex(fromedge)
+        traci.vehicle.setSpeed(vehID, 0.0)
+        # if len(route[start]) <= 1:
+        # traci.vehicle.moveTo(vehID, laneID, length)
+        # x, y = traci.vehicle.getPosition(vehID)
+        # if vehID == 'veh0':
+        #     traci.vehicle.moveToXY(vehID, fromedge, 0, x, y, -90.0, 2)
+        # elif vehID == 'veh1':
+        #     traci.vehicle.moveToXY(vehID, fromedge, 0, x, y, 90.0, 2)
+        # elif vehID == 'veh2':
+        #     traci.vehicle.moveToXY(vehID, fromedge, 0, x, y, 0.0, 2)
+        # elif vehID == 'veh3':
+        #     traci.vehicle.moveToXY(vehID, fromedge, 0, x, y, 360.0, 2)
+        # elif vehID == 'veh4':
+        #     traci.vehicle.moveToXY(vehID, fromedge, 0, x, y, 450.0, 2)
+        # elif vehID == 'veh5':
+        #     traci.vehicle.moveToXY(vehID, fromedge, 0, x, y, -450.0, 2)
+        # vlist = traci.lane.getLastStepVehicleIDs(laneID)
+        # showInfo(vlist[0])
+        # print(vlist)
 # def isStreet(vehID):
 
 
@@ -380,7 +380,7 @@ def main(sumocfg):
     # step = 0
 
     traci.vehicle.subscribe(
-        'veh0', (tc.VAR_ROAD_ID, tc.VAR_LANEPOSITION, tc.VAR_ANGLE, tc.VAR_NEIGHBORS))
+        'veh0', (tc.VAR_ROAD_ID, tc.VAR_LANEPOSITION, tc.VAR_ANGLE))
     print(traci.vehicle.getSubscriptionResults('veh0'))
     # lane = traci.lane.getIDList()
     # for i, laneid in enumerate(lane):
@@ -400,14 +400,42 @@ def main(sumocfg):
     # step = traci.simulation.getTime()
     # if len(v_list) > 0:
     #     showInfo(v_list[0])
+    i = 0
     while True:  # 1day
         v_list = traci.vehicle.getIDList()
         if len(v_list) <= 0:
             break
+        vehID = 'veh0'
+        if i % 3 == 2:
+            cur_speed = traci.vehicle.getSpeed(vehID)
+            traci.vehicle.setSpeed(vehID, cur_speed + 0.52)
+        if isJunction(vehID):
+            route = traci.vehicle.getRoute(vehID)
+            route_index = traci.vehicle.getRouteIndex(vehID)
+            if route_index + 2 < len(route):
+                distance = traci.vehicle.getDistance(vehID)
+                next_edgeID = route[route_index + 1]
+                if distance > 0.0:
+                    direction = 'l'
+                    next_next_edgeID = g.getNextInfoTo(
+                        next_edgeID, direction)
+                    if (next_next_edgeID is not None
+                            and next_next_edgeID != route[route_index + 2]):
+                        target = route[len(route) - 1]
+                        newroute = traci.simulation.findRoute(
+                            next_next_edgeID, target)
+                        if len(newroute.edges) > 0:
+                            route_route = [next_edgeID]
+                            route_route[len(route_route):len(
+                                newroute.edges)] = newroute.edges
+                            print(route_route, "route_route")
+                            traci.vehicle.setRoute(vehID, route_route)
+
         # for v in v_list:
         # showInfo('veh0')
-        takeAction()
+        # takeAction()
         result = traci.vehicle.getSubscriptionResults('veh0')
+        print(result, traci.vehicle.getDistance('veh0'))
         cllidlist = traci.simulation.getCollidingVehiclesIDList()
         arraival = traci.simulation.getArrivedIDList()
         stop = traci.simulation.getStopStartingVehiclesIDList()
@@ -434,6 +462,7 @@ def main(sumocfg):
         stop2 = traci.simulation.getStopEndingVehiclesIDList()
         teleport = traci.simulation.getStartingTeleportIDList()
         result = traci.vehicle.getSubscriptionResults('veh0')
+        print(result, traci.vehicle.getDistance('veh0'))
         # step = traci.simulation.getTime()
         v_list = traci.vehicle.getIDList()
         if len(v_list) == 0:
@@ -447,6 +476,7 @@ def main(sumocfg):
         # print("take action")
         # if len(v_list) > 0:
             # showInfo(v_list[0])
+        i += 1
 
     traci.close()
 
