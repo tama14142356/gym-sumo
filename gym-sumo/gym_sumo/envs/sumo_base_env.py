@@ -28,6 +28,8 @@ DIRECTION = ['s', 'T', 'l', 'L', 'r', 'R']
 
 
 class SumoBaseEnv(gym.Env):
+    sumo_label = []
+
     def __init__(self, isgraph=True, area=0, carnum=100, mode='gui', step_length=0.01,
                  simulation_end=100, seed=None):
         super().__init__()
@@ -44,14 +46,14 @@ class SumoBaseEnv(gym.Env):
         self._vehID_list = {}
         self._goal = {}
         self._removed_vehID_list = []
+        self._start_edge_list = []
+        self.seed(seed)
         self._step_length = step_length
         self._simulation_end = float(simulation_end)
         self._cur_simulation_start = 0.0
         self._is_graph = isgraph
         self._graph = Graph(self._netpath)
         self._sumo_util = SumoUtil(self._graph, self._step_length, DIRECTION)
-        self._start_edge_list = []
-        self.seed(seed)
         self._init_simulator(mode, step_length=step_length)
         self._add_car(carnum)
 
@@ -100,11 +102,21 @@ class SumoBaseEnv(gym.Env):
             sumo_command = 'sumo'
         else:
             raise AttributeError("not supported mode!!")
-        sumoCmd = [sumo_command, '-c', sumocfg, '--routing-algorithm', routing_alg,
-                   '--step-length', str(step_length), '--collision.action', 'remove',
-                   '--collision.check-junctions', 'true', '--tls.all-off', 'true',
-                   ]
-        traci.start(sumoCmd, numRetries=100)
+        sumo_cmd = [sumo_command, '-c', sumocfg, '--routing-algorithm', routing_alg,
+                    '--step-length', str(step_length), '--collision.action', 'remove',
+                    '--collision.check-junctions', 'true', '--tls.all-off', 'true',
+                    ]
+        label_default = "default"
+        label = label_default
+        i = 0
+        while True:
+            if label in SumoBaseEnv.sumo_label:
+                label = label_default + "{}".format(i)
+            else:
+                SumoBaseEnv.sumo_label.append(label)
+                break
+            i += 1
+        traci.start(sumo_cmd, numRetries=100, label=label)
 
     def _add_car(self, carnum):
         for i in range(carnum):
