@@ -11,65 +11,146 @@ except ImportError as e:
 
 class SumoUtil:
 
-    def __init__(self, graph, step_length):
+    def __init__(self, graph, step_length, direction_list):
         self._graph = graph
         self._step_length = step_length
+        self._direction_list = direction_list
+
+    def get_target(self, vehID='', routeID=''):
+        if len(routeID) > 0:
+            route = traci.route.getEdges(routeID)
+        else:
+            route = traci.vehicle.getRoute(vehID)
+        return route[len(route) - 1]
+
+    def _is_along_route(self, vehID, direction):
+        """whether vehicle is along route on current step
+
+        Args:
+            vehID (str): vehicle id
+            direction (str): direction which vehicle will go
+
+        Returns:
+            bool: whether vehicle is alogn route on current step
+        """
+        is_junction = self._is_junction(vehID)
+        is_start = self._is_start(vehID)
+        if not is_junction or is_start:
+            return direction == self._direction_list[0]
+        route = traci.vehicle.getRoute(vehID)
+        route_index = traci.vehicle.getRouteIndex(vehID) + 1
+        if route_index >= len(route):
+            return False
+        to_edgeID = route[route_index]
+        cur_edgeID = route[route_index - 1]
+        direct = self._graph.getNextInfoDirect(
+            curEdgeID=cur_edgeID, toEdgeID=to_edgeID)
+        return direct == direction
 
     def _is_junction(self, vehID):
+        """whether vehicle is on junction on current step
+
+        Args:
+            vehID (str): vehicle id
+
+        Returns:
+            bool: whether vehicle is on junction on current step
+        """
         cur_edgeID = traci.vehicle.getRoadID(vehID)
         if self._graph.getEdgeIndex(cur_edgeID) == -1:
             return True
         return False
 
-    def _could_turn(self, vehID, future_speed, direction=None):
+    def _is_start(self, vehID):
+        """whether vehicle has been moved
+
+        Args:
+            vehID (str): vehicle id
+
+        Returns:
+            bool: whether vehicle has been moved
+        """
+        distance = traci.vehicle.getDistance(vehID)
+        return distance <= 0.0
+
+    def _could_reach_junction(self, vehID):
+        """whether vehicle reach junction until next step
+
+        Args:
+            vehID (str): vehicle id
+
+        Returns:
+            bool, str: whether vehicle reach junction til next step,
+                       if current lane is junction lane, next lane id on road
+                       else current lane id
+        """
         cur_lane_pos = traci.vehicle.getLanePosition(vehID)
         cur_laneID = traci.vehicle.getLaneID(vehID)
         road_length = traci.lane.getLength(cur_laneID)
         if self._is_junction(vehID):
-            # 基本的に交差点にすでにいる場合は今から向きを変えるのは不可能という意味でreject
             route = traci.vehicle.getRoute(vehID)
-            distance = traci.vehicle.getDistance(vehID)
-            if distance > road_length:
-                return False
-            # 初期位置なので、この交差点もはじめのedgeの一部とみなす。
             route_index = traci.vehicle.getRouteIndex(vehID)
-            laneID = route[route_index] + '_0'
-            road_length += traci.lane.getLength(laneID)
-        future_lane_pos = cur_lane_pos + future_speed * self._step_length
-        if future_lane_pos > road_length:
-            return True
-        return False
+            route_index += (1 if self._is_start(vehID) else 0)
+            if route_index >= len(route):
+                return False, cur_laneID
+            cur_laneID = route[route_index] + '_0'
+            road_length += traci.lane.getLength(cur_laneID)
+        cur_speed = traci.vehicle.getSpeed(vehID)
+        future_lane_pos = cur_lane_pos + cur_speed * self._step_length
+        return future_lane_pos > road_length, cur_laneID
 
-    def turn(self, vehID, direction, cur_edgeID=None):
-        if cur_edgeID is None:
-            cur_edgeID = traci.vehicle.getRoadID(vehID)
+    def _could_turn(self, vehID, direction):
+        """whether vehicle could turn to the direction
+
+        Args:
+            vehID (str): vehicle id
+            direction (str): the direction which vehicle will turn to
+
+        Returns:
+            bool, str or None: whether vehicle could turn to the direction,
+                               next edge id which
+                               if vehicle could turn, vehicle will reach
+        """
+        is_along_route = self._is_along_route(vehID, direction)
+        if self._is_junction(vehID) and not is_along_route:
+            return False, None
+        could_reach, cur_laneID = self._could_reach_junction(vehID)
+        if not could_reach:
+            return is_along_route, None
+        cur_edgeID = traci.lane.getEdgeID(cur_laneID)
         next_edgeID = self._graph.getNextInfoTo(cur_edgeID, direction)
-        if next_edgeID is None:
+        return next_edgeID is not None, next_edgeID
+
+    def turn(self, vehID, direction):
+        """turn to the direction
+
+        Args:
+            vehID (str): vehicle id
+            direction (str): the direction which vehicle will turn to
+
+        Returns:
+            bool: whether vehicle could turn
+        """
+        could_turn, next_edgeID = self._could_turn(vehID, direction)
+        if not could_turn:
             return False
+        if next_edgeID is None:
+            return True
+        # move indirectly
+        target_edgeID = self.get_target(vehID)
+        new_route = traci.simulation.findRoute(next_edgeID, target_edgeID)
+        if len(new_route.edges) == 0:
+            print(vehID, "empty")
+            traci.vehicle.changeTarget(vehID, next_edgeID)
         else:
-            # move indirectly
-            route = traci.vehicle.getRoute(vehID)
-            route_index = traci.vehicle.getRouteIndex(vehID) + 1
-            route_edge_num = len(route)
-            if route_index < route_edge_num:
-                orig_next_edgeID = route[route_index]
-                if next_edgeID == orig_next_edgeID:
-                    return True
-            target_edgeID = route[route_edge_num - 1]
-            new_route = traci.simulation.findRoute(next_edgeID, target_edgeID)
-            new_edge_list = [cur_edgeID]
-            new_edge_list[
-                len(new_edge_list):len(new_route.edges)
-            ] = new_route.edges
-            if len(new_route.edges) == 0:
-                print(vehID, "empty")
-                traci.vehicle.changeTarget(vehID, next_edgeID)
-                return True
-            try:
-                traci.vehicle.setRoute(vehID, new_edge_list)
-            except TraCIException as tr:
-                print(tr)
-                return False
+            if self._is_junction(vehID):
+                new_edge_list = new_route.edges
+            else:
+                cur_edgeID = traci.vehicle.getRoadID(vehID)
+                new_edge_list = [cur_edgeID]
+                new_edge_list[
+                    len(new_edge_list):len(new_route.edges)] = new_route.edges
+            traci.vehicle.setRoute(vehID, new_edge_list)
         return True
 
     def _get_route_length(self, vehID):

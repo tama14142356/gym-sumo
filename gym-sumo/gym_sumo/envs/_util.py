@@ -13,8 +13,8 @@ def random_int(a, b, num, exclude=[], random_state=DEFAULT_RANDOM_STATE):
         b (integer): end interger of closed section
         num (integer): the number of random integer
         exclude (list, optional): list of integer which exclude. Defaults to [].
-        random_state (numpy object, optional): numpy random_state.
-                                               Defaults to np.random.RandomState(None).
+        random_state (numpy.random.mtrand.RandomState,
+            optional): numpy random_state. Defaults to np.random.RandomState(None).
 
     Returns:
         ns (list): random integer list
@@ -27,30 +27,30 @@ def random_int(a, b, num, exclude=[], random_state=DEFAULT_RANDOM_STATE):
     return ns
 
 
-def randomTuple(a, b, num, targetList, random_state=DEFAULT_RANDOM_STATE):
+def randomTuple(a, b, num, target_list, random_state=DEFAULT_RANDOM_STATE):
     """create random tuple which has num element
        but, first element is chosen from
-            integers which isn't inlcluded in targetList
+            integers which isn't inlcluded in target_list
             until you can't choose integer
 
     Args:
         a (integer): start integer of closed section
         b (integer): end interger of closed section
         num (integer): the number of element of tuple
-        targetList (list): list of integer
-        random_state (numpy object, optional): numpy random_state.
-                                               Defaults to np.random.RandomState(None).
+        target_list (list): list of integer
+        random_state (numpy.random.mtrand.RandomState,
+            optional): numpy random_state. Defaults to np.random.RandomState(None).
 
     Returns:
         IndexTuple (tuple): num element random tuple
     """
-    listNum = len(targetList)
+    listNum = len(target_list)
     limit = b - a + 1
     IndexTuple = ()
     if listNum >= limit:
         ns = random_int(a, b, num, random_state=random_state)
     else:
-        ns = random_int(a, b, 1, targetList, random_state=random_state)
+        ns = random_int(a, b, 1, target_list, random_state=random_state)
         tmp = random_int(a, b, num - 1, ns, random_state=random_state)
         ns[len(ns):len(tmp)] = tmp
     for nstmp in ns:
@@ -58,11 +58,11 @@ def randomTuple(a, b, num, targetList, random_state=DEFAULT_RANDOM_STATE):
     return IndexTuple
 
 
-def isNewTuple(targetList, a, b):
+def is_new_tuple(target_list, a, b):
     """function which judge whether new tuple
 
     Args:
-        targetList (dict): dictionary of tuple :
+        target_list (dict): dictionary of tuple :
                            key-> first element of tuple,
                            value-> list of second element of tuple
         a (integer): first element of tuple
@@ -71,42 +71,80 @@ def isNewTuple(targetList, a, b):
     Returns:
         bool: whether new tuple or not
     """
-    if a not in targetList:
-        targetList[a] = []
-        targetList[a].append(b)
+    if a not in target_list:
+        target_list[a] = []
+        target_list[a].append(b)
         return True
-    elif b not in targetList[a]:
-        targetList[a].append(b)
+    elif b not in target_list[a]:
+        target_list[a].append(b)
         return True
     return False
 
 
-def _flatten_list(targetList):
+def _flatten_list(target_list):
     """flatten the list
 
     Args:
-        targetList (list): target list to flatten
+        target_list (list): target list to flatten
 
     Yields:
         any type(scalar): scalar element of target list
     """
-    for element in targetList:
+    for element in target_list:
         if isinstance(element, list):
             yield from flatten_list(element)
         else:
             yield element
 
 
-def flatten_list(targetList):
+def flatten_list(target_list):
     """flatten the target list
 
     Args:
-        targetList (list): target list to flatten
+        target_list (list): target list to flatten
 
     Returns:
         list: list which flatten the target list
     """
-    return list(_flatten_list(targetList))
+    return list(_flatten_list(target_list))
+
+
+def _get_vector(start_pos, target_pos, is_complex=False):
+    """create vector from start_pos to target_pos
+
+    Args:
+        start_pos (numpy.ndarray or list or tuple): start vector
+        target_pos (numpy.ndarray or list or tuple): end vector
+        is_complex (bool, optional): type of vector is wether complex is or not.
+                                     Defaults to False.
+
+    Returns:
+        numpy.ndarray or complex: vector from start_pos to target_pos
+    """
+    start = np.array(start_pos)
+    target = np.array(target_pos)
+    vector = target - start
+    if is_complex:
+        return complex(vector[0], vector[1])
+    return vector
+
+
+def get_base_vector(start_pos, target_pos, norm=1.0):
+    """create vector from start_pos to target_pos whose norm is norm
+
+    Args:
+        start_pos (numpy.ndarray or list or tuple): start vector
+        target_pos (numpy.ndarray or list or tuple): end vector
+        norm (float, optional): vector's norm. Defaults to 1.0.
+
+    Returns:
+        numpy.ndarray: vector from start_pos to target_pos whose norm is norm
+    """
+    vector = _get_vector(start_pos, target_pos)
+    vector_norm = np.linalg.norm(vector, ord=2)
+    base_vector = vector / vector_norm
+    ans_vector = base_vector * norm
+    return ans_vector
 
 
 def get_base_angle(angle):
@@ -164,8 +202,8 @@ def get_degree(start_pos, target_pos):
     """get declinate of vector which is start_pos to target_pos
 
     Args:
-        start_pos (numpy array or list or tuple): starting point of that vector
-        target_pos (numpy array or list or tuple): ending point of that vector
+        start_pos (numpy.ndarray or list or tuple): starting point of that vector
+        target_pos (numpy.ndarray or list or tuple): ending point of that vector
 
     Returns:
         float: declinate of vector
@@ -174,10 +212,7 @@ def get_degree(start_pos, target_pos):
         0 degree line: the positive y-axis direction
         direction of declinate: clockwise
     """
-    start_pos = np.array(start_pos)
-    target_pos = np.array(target_pos)
-    vector = target_pos - start_pos
-    complex_number = complex(vector[0], vector[1])
+    complex_number = _get_vector(start_pos, target_pos, is_complex=True)
     declinate = np.angle(complex_number, deg=True)
     negative_base_declinate = get_negative_base_angle(declinate)
     vector_degree = abs(negative_base_declinate) + 90.0
@@ -188,18 +223,15 @@ def get_rectangle_positions(start_pos, target_pos, width):
     """get rectangle position
 
     Args:
-        start_pos (list or tuple or numpy array): central position of rectangle edge
-        target_pos (list or tuple or numpy array): central position of opposite side
+        start_pos (list or tuple or numpy.ndarray): central position of rectangle edge
+        target_pos (list or tuple or numpy.ndarray): central position of opposite side
                                                    to the above
         width (float): length of tha above edge
 
     Returns:
         list: positions of rectangular
     """
-    start_pos = np.array(start_pos)
-    target_pos = np.array(target_pos)
-    vector = target_pos - start_pos
-    complex_number = complex(vector[0], vector[1])
+    complex_number = _get_vector(start_pos, target_pos, is_complex=True)
     length = abs(complex_number)
     width_len = width / (2.0 * length)
     theta = np.deg2rad(90)
@@ -223,8 +255,8 @@ def in_rect(rect, target):
     """whether target position is in rect
 
     Args:
-        rect (list or numpy array): rectangular positions
-        target (list or tuple or numpy array): target position
+        rect (list or numpy.ndarray): rectangular positions
+        target (list or tuple or numpy.ndarray): target position
 
     Returns:
         bool: whether target position is in rect

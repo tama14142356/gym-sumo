@@ -18,12 +18,13 @@ import tempfile
 from IPython import embed  # for edbug
 
 from ._graph import Graph
-from ._util import randomTuple
+from ._util import randomTuple, get_base_vector
 from .sumo_util import SumoUtil
 
 AREA = ['nishiwaseda', 'waseda_university']
 SPOS = 10.5
 VEH_LEN = 5.0
+DIRECTION = ['s', 'T', 'l', 'L', 'r', 'R']
 
 
 class SumoBaseEnv(gym.Env):
@@ -41,13 +42,14 @@ class SumoBaseEnv(gym.Env):
         self._carnum = carnum
         self._mode = mode
         self._vehID_list = {}
+        self._goal = {}
         self._removed_vehID_list = []
         self._step_length = step_length
         self._simulation_end = float(simulation_end)
         self._cur_simulation_start = 0.0
         self._is_graph = isgraph
         self._graph = Graph(self._netpath)
-        self._sumo_util = SumoUtil(self._graph, self._step_length)
+        self._sumo_util = SumoUtil(self._graph, self._step_length, DIRECTION)
         self._start_edge_list = []
         self.seed(seed)
         self._init_simulator(mode, step_length=step_length)
@@ -80,6 +82,15 @@ class SumoBaseEnv(gym.Env):
     def _reset_simulate_time(self, cur_time):
         self._cur_simulation_start = cur_time
 
+    def _reset_goal_element(self, vehID, goal_edgeID):
+        self._vehID_list[vehID]['goal'] = goal_edgeID
+        goal_laenID = goal_edgeID + "_0"
+        goal_element = {}
+        lane_pos = traci.lane.getShape(goal_laenID)
+        goal_element['pos'] = list(lane_pos[1])
+        goal_element['direct'] = get_base_vector(lane_pos[0], lane_pos[1])
+        self._goal[vehID] = goal_element
+
     def _init_simulator(self, mode='gui', routing_alg='dijkstra', step_length=0.01):
         sumocfg = self._sumocfg
         sumo_command = mode
@@ -103,6 +114,8 @@ class SumoBaseEnv(gym.Env):
             veh_element = {'route': routeID,
                            'start': from_edgeID, 'goal': to_edgeID}
             self._vehID_list[vehID] = veh_element
+            self._reset_goal_element(vehID, to_edgeID)
+            self._start_edge_list.append(self._graph.getEdgeIndex(from_edgeID))
             traci.vehicle.add(vehID, routeID)
             traci.vehicle.setSpeedMode(vehID, 0)
             traci.vehicle.setSpeed(vehID, 0.0)
@@ -117,6 +130,8 @@ class SumoBaseEnv(gym.Env):
             if vehID in self._removed_vehID_list and vehID not in v_list:
                 routeID = self._vehID_list[vehID]['route']
                 edgeID = self._vehID_list[vehID]['start']
+                goal_edgeID = self._sumo_util.get_target(routeID=routeID)
+                self._reset_goal_element(vehID, goal_edgeID)
                 laneID = edgeID + '_0'
                 lane_vehID_list = traci.lane.getLastStepVehicleIDs(laneID)
                 min_pos = max(SPOS, traci.lane.getLength(laneID))
