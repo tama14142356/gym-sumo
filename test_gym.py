@@ -24,18 +24,29 @@ args = {
 # env = gym.make('gym_sumo:sumo-v0', **args)
 # env = gym.make('sumo-v0', **args)
 env = gym.make('sumo-light-v0', **args)
+# env2 = gym.make('sumo-light-v0', **args)
 # env = gym.make('sumo-simple-v0', **args)
 # err_msg = "%r (%s) invalid" % (env.observation, type(env.observation))
 # assert env.observation_space.contains(env.observation), err_msg
 # print(env.action_space.n)
 observation = env.reset()
+# observation = env2.reset()
 vehID = 'veh0'
-for i in range(10000):
-    env.render()
+for i in range(100):
     action = env.action_space.sample()
     observation, reward, done, _ = env.step(action)
-    print(i, reward, done, action)
+    print(i, reward, done, action, observation)
+    env.render()
 
     if done:
         observation = env.reset()
 env.close()
+# for i in range(100):
+#     env2.render()
+#     action = env2.action_space.sample()
+#     observation, reward, done, _ = env2.step(action)
+#     print(i, reward, done, action)
+
+#     if done:
+#         observation = env2.reset()
+# env2.close()
