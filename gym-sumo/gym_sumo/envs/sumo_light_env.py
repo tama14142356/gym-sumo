@@ -1,18 +1,10 @@
 from IPython import embed
-import gym
-import tempfile
 # from gym import error, spaces, utils
 from gym import spaces, error
-from gym.utils import seeding
-from PIL import Image
-
-import os
-import sys
 
 try:
     import traci
     from traci import constants as tc
-    from traci.exceptions import TraCIException
 except ImportError as e:
     raise error.DependencyNotInstalled(
         "{}. (HINT: you can install sumo or set the path for sumo library by reading README.md)".format(e))
@@ -21,18 +13,14 @@ import numpy as np
 
 from .sumo_base_env import SumoBaseEnv as BaseEnv
 from .sumo_base_env import DIRECTION
+from .sumo_base_env import STRAIGHT, UTURN, LEFT, PAR_LEFT, RIGHT, PAR_RIGHT
 from ._util import vector_decomposition, flatten_list
 
 # action
-NO_OP = 0
-UTARN = 1
-LEFT = 2
-PAR_LEFT = 3
-RIGHT = 4
-PAR_RIGHT = 5
+NO_OP = STRAIGHT
 
 # flag
-DIRECT_FLAG = 5
+DIRECT_FLAG = max(STRAIGHT, UTURN, LEFT, PAR_LEFT, RIGHT, PAR_RIGHT)
 
 # accel
 POS_LARGE = 6
@@ -40,41 +28,7 @@ POS_SMALL = 7
 NEG_LARGE = 8
 NEG_SMALL = 9
 
-STANDARD_SPEED = 100.0 / 9.0
-
-# standard length for adding car
-SPOS = 10.5
-
-# visible range of the car (circle with that radius to that range) [m]
-VISIBLE_RANGE = 10
-
-# the number of recognizable car per a car
-VISIBLE_NUM = 5
-
-# category variable(one hot encoding)
-# for vehicle
-VEHICLE_CATEGORY = [0, 1]
-VEH_CATEGORY = 1
-NONE_VEH_CATEGORY = 0
-
 ACCEL = [1.0, 0.2, -1.0, -0.2]
-
-VEH_SIGNALS = {
-    0: "VEH_SIGNAL_BLINKER_RIGHT",
-    1: "VEH_SIGNAL_BLINKER_LEFT",
-    2: "VEH_SIGNAL_BLINKER_EMERGENCY",
-    3: "VEH_SIGNAL_BRAKELIGHT",
-    4: "VEH_SIGNAL_FRONTLIGHT",
-    5: "VEH_SIGNAL_FOGLIGHT",
-    6: "VEH_SIGNAL_HIGHBEAM",
-    7: "VEH_SIGNAL_BACKDRIVE",
-    8: "VEH_SIGNAL_WIPER",
-    9: "VEH_SIGNAL_DOOR_OPEN_LEFT",
-    10: "VEH_SIGNAL_DOOR_OPEN_RIGHT",
-    11: "VEH_SIGNAL_EMERGENCY_BLUE",
-    12: "VEH_SIGNAL_EMERGENCY_RED",
-    13: "VEH_SIGNAL_EMERGENCY_YELLOW",
-}
 
 
 class SumoLightEnv(BaseEnv):
@@ -85,7 +39,7 @@ class SumoLightEnv(BaseEnv):
         # 6action and accel, brake
         self.action_space = spaces.Discrete(10)
         self.observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, dtype=np.float, shape=(12, ))
+            low=-np.inf, high=np.inf, dtype=np.float32, shape=(12, ))
 
     def step(self, action):
         # determine next step action
@@ -146,7 +100,7 @@ class SumoLightEnv(BaseEnv):
         goal_vector = list(self._goal[vehID]['direct'])
         obs = [relative_goal_pos, veh_vector, turn_direction, goal_vector]
         obs_flat_list = flatten_list(obs)
-        observation = np.array(obs_flat_list, dtype=np.float)
+        observation = np.array(obs_flat_list, dtype=np.float32)
         return observation
 
     def _take_action(self, vehID, action):

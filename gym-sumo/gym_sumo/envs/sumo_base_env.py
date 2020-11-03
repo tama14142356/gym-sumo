@@ -15,16 +15,46 @@ except ImportError as e:
 import numpy as np
 from PIL import Image
 import tempfile
-from IPython import embed  # for edbug
+from IPython import embed  # for debug
 
 from ._graph import Graph
 from ._util import randomTuple, get_base_vector
 from .sumo_util import SumoUtil
 
 AREA = ['nishiwaseda', 'waseda_university']
+# standard length for adding car
 SPOS = 10.5
+# standard speed (40km/h) for vehicle
+STANDARD_SPEED = 100.0 / 9.0
+# standard vehicle length(m)
 VEH_LEN = 5.0
+# vehicle direction
+STRAIGHT = 0
+UTURN = 1
+LEFT = 2
+PAR_LEFT = 3
+RIGHT = 4
+PAR_RIGHT = 5
+
 DIRECTION = ['s', 'T', 'l', 'L', 'r', 'R']
+
+# vehicle signal number
+VEH_SIGNALS = {
+    0: "VEH_SIGNAL_BLINKER_RIGHT",
+    1: "VEH_SIGNAL_BLINKER_LEFT",
+    2: "VEH_SIGNAL_BLINKER_EMERGENCY",
+    3: "VEH_SIGNAL_BRAKELIGHT",
+    4: "VEH_SIGNAL_FRONTLIGHT",
+    5: "VEH_SIGNAL_FOGLIGHT",
+    6: "VEH_SIGNAL_HIGHBEAM",
+    7: "VEH_SIGNAL_BACKDRIVE",
+    8: "VEH_SIGNAL_WIPER",
+    9: "VEH_SIGNAL_DOOR_OPEN_LEFT",
+    10: "VEH_SIGNAL_DOOR_OPEN_RIGHT",
+    11: "VEH_SIGNAL_EMERGENCY_BLUE",
+    12: "VEH_SIGNAL_EMERGENCY_RED",
+    13: "VEH_SIGNAL_EMERGENCY_YELLOW",
+}
 
 
 class SumoBaseEnv(gym.Env):
@@ -106,17 +136,7 @@ class SumoBaseEnv(gym.Env):
                     '--step-length', str(step_length), '--collision.action', 'remove',
                     '--collision.check-junctions', 'true', '--tls.all-off', 'true',
                     ]
-        label_default = "default"
-        label = label_default
-        i = 0
-        while True:
-            if label in SumoBaseEnv.sumo_label:
-                label = label_default + "{}".format(i)
-            else:
-                SumoBaseEnv.sumo_label.append(label)
-                break
-            i += 1
-        traci.start(sumo_cmd, numRetries=100, label=label)
+        traci.start(sumo_cmd, numRetries=100)
 
     def _add_car(self, carnum):
         for i in range(carnum):
