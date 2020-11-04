@@ -1,26 +1,20 @@
 import numpy as np
-from gym import error
-
-try:
-    import traci
-    from traci.exceptions import TraCIException
-except ImportError as e:
-    raise error.DependencyNotInstalled(
-        "{}. (HINT: you can install sumo or set the path for sumo library by reading README.md)".format(e))
+from IPython import embed  # for debug
 
 
 class SumoUtil:
 
-    def __init__(self, graph, step_length, direction_list):
+    def __init__(self, graph, step_length, direction_list, traci_connect):
         self._graph = graph
         self._step_length = step_length
         self._direction_list = direction_list
+        self.traci_connect = traci_connect
 
     def get_target(self, vehID='', routeID=''):
         if len(routeID) > 0:
-            route = traci.route.getEdges(routeID)
+            route = self.traci_connect.route.getEdges(routeID)
         else:
-            route = traci.vehicle.getRoute(vehID)
+            route = self.traci_connect.vehicle.getRoute(vehID)
         return route[len(route) - 1]
 
     def _is_along_route(self, vehID, direction):
@@ -37,8 +31,8 @@ class SumoUtil:
         is_start = self._is_start(vehID)
         if not is_junction or is_start:
             return direction == self._direction_list[0]
-        route = traci.vehicle.getRoute(vehID)
-        route_index = traci.vehicle.getRouteIndex(vehID) + 1
+        route = self.traci_connect.vehicle.getRoute(vehID)
+        route_index = self.traci_connect.vehicle.getRouteIndex(vehID) + 1
         if route_index >= len(route):
             return False
         to_edgeID = route[route_index]
@@ -56,7 +50,7 @@ class SumoUtil:
         Returns:
             bool: whether vehicle is on junction on current step
         """
-        cur_edgeID = traci.vehicle.getRoadID(vehID)
+        cur_edgeID = self.traci_connect.vehicle.getRoadID(vehID)
         if self._graph.getEdgeIndex(cur_edgeID) == -1:
             return True
         return False
@@ -70,7 +64,7 @@ class SumoUtil:
         Returns:
             bool: whether vehicle has been moved
         """
-        distance = traci.vehicle.getDistance(vehID)
+        distance = self.traci_connect.vehicle.getDistance(vehID)
         return distance <= 0.0
 
     def _could_reach_junction(self, vehID):
@@ -84,18 +78,19 @@ class SumoUtil:
                        if current lane is junction lane, next lane id on road
                        else current lane id
         """
-        cur_lane_pos = traci.vehicle.getLanePosition(vehID)
-        cur_laneID = traci.vehicle.getLaneID(vehID)
-        road_length = traci.lane.getLength(cur_laneID)
+        cur_lane_pos = self.traci_connect.vehicle.getLanePosition(vehID)
+        cur_laneID = self.traci_connect.vehicle.getLaneID(vehID)
+        embed()
+        road_length = self.traci_connect.lane.getLength(cur_laneID)
         if self._is_junction(vehID):
-            route = traci.vehicle.getRoute(vehID)
-            route_index = traci.vehicle.getRouteIndex(vehID)
+            route = self.traci_connect.vehicle.getRoute(vehID)
+            route_index = self.traci_connect.vehicle.getRouteIndex(vehID)
             route_index += (1 if self._is_start(vehID) else 0)
             if route_index >= len(route):
                 return False, cur_laneID
             cur_laneID = route[route_index] + '_0'
-            road_length += traci.lane.getLength(cur_laneID)
-        cur_speed = traci.vehicle.getSpeed(vehID)
+            road_length += self.traci_connect.lane.getLength(cur_laneID)
+        cur_speed = self.traci_connect.vehicle.getSpeed(vehID)
         future_lane_pos = cur_lane_pos + cur_speed * self._step_length
         return future_lane_pos > road_length, cur_laneID
 
@@ -117,7 +112,7 @@ class SumoUtil:
         could_reach, cur_laneID = self._could_reach_junction(vehID)
         if not could_reach:
             return is_along_route, None
-        cur_edgeID = traci.lane.getEdgeID(cur_laneID)
+        cur_edgeID = self.traci_connect.lane.getEdgeID(cur_laneID)
         next_edgeID = self._graph.getNextInfoTo(cur_edgeID, direction)
         return next_edgeID is not None, next_edgeID
 
@@ -138,33 +133,34 @@ class SumoUtil:
             return True
         # move indirectly
         target_edgeID = self.get_target(vehID)
-        new_route = traci.simulation.findRoute(next_edgeID, target_edgeID)
+        new_route = self.traci_connect.simulation.findRoute(
+            next_edgeID, target_edgeID)
         if len(new_route.edges) == 0:
             print(vehID, "empty")
-            traci.vehicle.changeTarget(vehID, next_edgeID)
+            self.traci_connect.vehicle.changeTarget(vehID, next_edgeID)
         else:
             if self._is_junction(vehID):
                 new_edge_list = new_route.edges
             else:
-                cur_edgeID = traci.vehicle.getRoadID(vehID)
+                cur_edgeID = self.traci_connect.vehicle.getRoadID(vehID)
                 new_edge_list = [cur_edgeID]
                 new_edge_list[
                     len(new_edge_list):len(new_route.edges)] = new_route.edges
-            traci.vehicle.setRoute(vehID, new_edge_list)
+            self.traci_connect.vehicle.setRoute(vehID, new_edge_list)
         return True
 
     def _get_route_length(self, vehID):
-        route = traci.vehicle.getRoute(vehID)
+        route = self.traci_connect.vehicle.getRoute(vehID)
         length = 0
         num = len(route)
         for i, edgeID in enumerate(route):
             laneID = edgeID + '_0'
-            length += traci.lane.getLength(laneID)
+            length += self.traci_connect.lane.getLength(laneID)
             if i < num - 1:
                 next_edgeID = route[i + 1]
                 via_laneID = self._graph.getNextInfoVia(
                     edgeID, toEdgeID=next_edgeID)
-                length += traci.lane.getLength(via_laneID)
+                length += self.traci_connect.lane.getLength(via_laneID)
         return length
 
     def _is_exist(self, pos, r, target):

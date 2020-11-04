@@ -83,9 +83,10 @@ class SumoBaseEnv(gym.Env):
         self._cur_simulation_start = 0.0
         self._is_graph = isgraph
         self._graph = Graph(self._netpath)
-        self._sumo_util = SumoUtil(self._graph, self._step_length, DIRECTION)
         self._init_simulator(mode, step_length=step_length)
         self._add_car(carnum)
+        self._sumo_util = SumoUtil(
+            self._graph, self._step_length, DIRECTION, self.traci_connect)
 
     def render(self, mode='human'):
         if self._mode == 'gui':
