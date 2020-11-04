@@ -16,16 +16,16 @@ except ImportError as e:
 
 import numpy as np
 
-from gym_sumo.envs._graph import Graph
-from gym_sumo.envs._myvehicle import CurVehicle, DIRECTION, STOP, STRAIGHT
-from gym_sumo.envs._util import randomTuple
+from ._graph import Graph
+from ._myvehicle import CurVehicle, DIRECTION, STOP, STRAIGHT
+from ._util import random_tuple
 
 
 class SumoExtraHardEnv(gym.Env):
 
     def __init__(self, isgraph=True, area='nishiwaseda', carnum=100,
                  mode='gui', step_length=0.01, simulation_end=100):
-        super(SumoExtraHardEnv, self).__init__()
+        super().__init__()
         sumoConfig = 'sumo_configs/' + area
         sumoMap = os.path.join(os.path.dirname(__file__), sumoConfig)
         self.__netpath = os.path.join(sumoMap, 'osm.net.xml')
@@ -236,7 +236,7 @@ class SumoExtraHardEnv(gym.Env):
         toEdgeID = None
         for i in range(10):
             # print(i, "test", routeID, "route")
-            edges = randomTuple(0, num_edge, 2, self.routeEdge)
+            edges = random_tuple(0, num_edge, 2, self.routeEdge)
             fromEdgeID = self.__graph.getEdgeID(edges[0])
             toEdgeID = self.__graph.getEdgeID(edges[1])
             try:
