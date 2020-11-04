@@ -1,8 +1,30 @@
 import numpy as np
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
+import copy
 
 DEFAULT_RANDOM_STATE = np.random.RandomState(None)
+
+
+def random_int_set(a, b, num, exclude=[], random_state=DEFAULT_RANDOM_STATE):
+    """num random integer without duplication in the range from a to b
+
+    Args:
+        a (integer): start integer of closed section
+        b (integer): end interger of closed section
+        num (integer): the number of random integer
+        exclude (list, optional): list of integer which exclude. Defaults to [].
+        random_state (numpy.random.mtrand.RandomState,
+            optional): numpy random_state. Defaults to np.random.RandomState(None).
+
+    Returns:
+        list: random integer list without duplication
+              but, if exclude_num >= b - a + 1 - num,
+                   the number of element is less than num
+    """
+    ns = random_int(a, b, num, exclude, random_state)
+    ns_duplicate = list(set(ns))
+    return ns_duplicate
 
 
 def random_int(a, b, num, exclude=[], random_state=DEFAULT_RANDOM_STATE):
@@ -17,45 +39,80 @@ def random_int(a, b, num, exclude=[], random_state=DEFAULT_RANDOM_STATE):
             optional): numpy random_state. Defaults to np.random.RandomState(None).
 
     Returns:
-        ns (list): random integer list
+        list: random integer list without duplication whose has num element
+              but, if exclude_num >= b - a + 1 - num, some element is duplication
     """
     ns = []
-    while len(ns) < num:
+    tmp_exclude_set = set(copy.deepcopy(exclude))
+    limit = b - a + 1 - num
+    exclude_num = len(tmp_exclude_set)
+    if exclude_num >= limit:
+        exclude_list = []
+    else:
+        exclude_list = list(tmp_exclude_set)
+    num_element = 0
+    while num_element < num:
         n = random_state.randint(a, b + 1)
-        if n not in ns and n not in exclude:
+        if (n not in exclude_list) or (limit <= num_element - num + 1):
             ns.append(n)
+            num_element += 1
+            exclude_list.append(n)
+
     return ns
 
 
-def randomTuple(a, b, num, target_list, random_state=DEFAULT_RANDOM_STATE):
+def _add_exclude_list(source_list, add_exclude_list, index):
+    """add all exclude number which is chosen from add_exclude_list to source_list
+
+    Args:
+        source_list (list): list of base
+        add_exclude_list (list): list of exclude
+        index (integer): index of exclude list
+
+    Returns:
+        list: exclude list
+    """
+    exclude_list = copy.deepcopy(source_list)
+    if len(add_exclude_list) <= 0:
+        return exclude_list
+    tmp_add_exclude = np.array(copy.deepcopy(add_exclude_list))
+    add_exclude = tmp_add_exclude[:, index].tolist()
+    exclude_list.append(add_exclude)
+    exclude_flat_list = flatten_list(exclude_list)
+    exclude_set_list = list(set(exclude_flat_list))
+    return exclude_set_list
+
+
+def random_tuple(a, b, num=2, start_exclude=[], exclude=[],
+                 random_state=DEFAULT_RANDOM_STATE):
     """create random tuple which has num element
        but, first element is chosen from
-            integers which isn't inlcluded in target_list
+            integers which isn't inlcluded in start_exclude
             until you can't choose integer
 
     Args:
         a (integer): start integer of closed section
         b (integer): end interger of closed section
-        num (integer): the number of element of tuple
-        target_list (list): list of integer
+        num (integer, optional): the number of element of tuple. Defaults to 2.
+        start_exclude (list, optional): list of integer. Defaults to [].
+        exclude (list, optional): list of integer which exclude. Defaults to [].
         random_state (numpy.random.mtrand.RandomState,
             optional): numpy random_state. Defaults to np.random.RandomState(None).
 
     Returns:
-        IndexTuple (tuple): num element random tuple
+        tuple: tuple with "num" random numbers in the elements
     """
-    listNum = len(target_list)
-    limit = b - a + 1
-    IndexTuple = ()
-    if listNum >= limit:
-        ns = random_int(a, b, num, random_state=random_state)
-    else:
-        ns = random_int(a, b, 1, target_list, random_state=random_state)
-        tmp = random_int(a, b, num - 1, ns, random_state=random_state)
-        ns[len(ns):len(tmp)] = tmp
+    index_tuple = ()
+    ns = []
+    if num >= 1:
+        start_exclude_list = _add_exclude_list(start_exclude, exclude, 0)
+        start = random_int(a, b, 1, start_exclude_list, random_state)
+        end_exclude_list = _add_exclude_list(ns, exclude, 1)
+        end = random_int(a, b, num - 1, end_exclude_list, random_state)
+        ns = flatten_list([start, end])
     for nstmp in ns:
-        IndexTuple = IndexTuple + (nstmp, )
-    return IndexTuple
+        index_tuple = index_tuple + (nstmp, )
+    return index_tuple
 
 
 def is_new_tuple(target_list, a, b):
