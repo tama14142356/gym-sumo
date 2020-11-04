@@ -1,9 +1,7 @@
 from IPython import embed
-# from gym import error, spaces, utils
 from gym import spaces, error
 
 try:
-    import traci
     from traci import constants as tc
 except ImportError as e:
     raise error.DependencyNotInstalled(
@@ -12,19 +10,8 @@ except ImportError as e:
 import numpy as np
 
 from .sumo_base_env import SumoBaseEnv as BaseEnv
-from gym_sumo.envs._util import vector_decomposition, get_degree, in_many_shape
-from gym_sumo.envs._util import get_rectangle_positions, in_rect, get_base_angle
-
-# action
-STRAIGHT = 0
-UTARN = 1
-LEFT = 2
-PARLEFT = 3
-RIGHT = 4
-PARRIGHT = 5
-STOP = 6
-
-STANDARD_SPEED = 100.0 / 9.0
+from ._util import vector_decomposition, get_degree, in_many_shape
+from ._util import get_rectangle_positions, in_rect, get_base_angle
 
 # visible range of the car (circle with that radius to that range) [m]
 VISIBLE_RANGE = 10
@@ -38,31 +25,13 @@ VEHICLE_CATEGORY = [0, 1]
 VEH_CATEGORY = 1
 NONE_VEH_CATEGORY = 0
 
-DIRECTION = ['s', 'T', 'l', 'L', 'r', 'R']
-
-VEH_SIGNALS = {
-    0: "VEH_SIGNAL_BLINKER_RIGHT",
-    1: "VEH_SIGNAL_BLINKER_LEFT",
-    2: "VEH_SIGNAL_BLINKER_EMERGENCY",
-    3: "VEH_SIGNAL_BRAKELIGHT",
-    4: "VEH_SIGNAL_FRONTLIGHT",
-    5: "VEH_SIGNAL_FOGLIGHT",
-    6: "VEH_SIGNAL_HIGHBEAM",
-    7: "VEH_SIGNAL_BACKDRIVE",
-    8: "VEH_SIGNAL_WIPER",
-    9: "VEH_SIGNAL_DOOR_OPEN_LEFT",
-    10: "VEH_SIGNAL_DOOR_OPEN_RIGHT",
-    11: "VEH_SIGNAL_EMERGENCY_BLUE",
-    12: "VEH_SIGNAL_EMERGENCY_RED",
-    13: "VEH_SIGNAL_EMERGENCY_YELLOW",
-}
-
 
 class SumoSimpleEnv(BaseEnv):
 
     def __init__(self, isgraph=True, area=0, carnum=100, mode='gui', step_length=0.01,
-                 simulation_end=100, seed=None):
-        super().__init__(isgraph, area, carnum, mode, step_length, simulation_end, seed)
+                 simulation_end=100, seed=None, label='default'):
+        super().__init__(isgraph, area, carnum, mode,
+                         step_length, simulation_end, seed, label)
         self.vehID = list(self._vehID_list)[0]
         # steer, accel, brake
         low = np.array([-np.inf, -1.0, 0.0])
@@ -78,33 +47,33 @@ class SumoSimpleEnv(BaseEnv):
         if self._mode == 'gui':
             self.screenshot_and_simulation_step()
         else:
-            traci.simulationStep()
+            self.traci_connect.simulationStep()
         observation = self._observation(vehID)
         reward = self.reward(vehID, reward_state)
         done = self._is_done(vehID)
         return observation, reward, done, {}
 
     def reset(self):
-        cur_time = traci.simulation.getTime()
+        cur_time = self.traci_connect.simulation.getTime()
         self._reset_simulate_time(cur_time)
         self._update_add_car()
         self._removed_vehID_list.clear()
         vehID = list(self._vehID_list)[0]
         if self._mode == 'gui':
-            viewID = traci.gui.DEFAULT_VIEW
-            traci.gui.trackVehicle(viewID, vehID)
-            # zoom = traci.gui.getZoom()
-            traci.gui.setZoom(viewID, 5000)
+            viewID = self.traci_connect.gui.DEFAULT_VIEW
+            self.traci_connect.gui.trackVehicle(viewID, vehID)
+            # zoom = self.traci_connect.gui.getZoom()
+            self.traci_connect.gui.setZoom(viewID, 5000)
         observation = self._observation(vehID)
         if self._mode == 'gui':
             self.screenshot_and_simulation_step()
         else:
-            traci.simulationStep()
+            self.traci_connect.simulationStep()
         return observation
 
     def reward(self, vehID, reward_state):
-        v_list = traci.vehicle.getIDList()
-        collision_list = traci.simulation.getCollidingVehiclesIDList()
+        v_list = self.traci_connect.vehicle.getIDList()
+        collision_list = self.traci_connect.simulation.getCollidingVehiclesIDList()
         reward = 0
         if vehID in v_list:
             if vehID in collision_list:
@@ -125,7 +94,7 @@ class SumoSimpleEnv(BaseEnv):
         return reward
 
     def _observation(self, vehID):
-        pos = list(traci.vehicle.getPosition(vehID))
+        pos = list(self.traci_connect.vehicle.getPosition(vehID))
         if pos[0] == tc.INVALID_DOUBLE_VALUE or pos[1] == tc.INVALID_DOUBLE_VALUE:
             pos[0], pos[1] = -np.inf, -np.inf
         pos_list = [pos]
@@ -135,8 +104,8 @@ class SumoSimpleEnv(BaseEnv):
         for neighbor in neighbor_list:
             v_obs = [0.0] * level
             num = VISIBLE_NUM * 3
-            speed = traci.vehicle.getSpeed(vehID)
-            pos = traci.vehicle.getPosition(vehID)
+            speed = self.traci_connect.vehicle.getSpeed(vehID)
+            pos = self.traci_connect.vehicle.getPosition(vehID)
             v_x, v_y = pos
             v_obs[0], v_obs[1], v_obs[2] = speed, v_x, v_y
             num_neighbor = len(neighbor)
@@ -154,38 +123,38 @@ class SumoSimpleEnv(BaseEnv):
         return observation
 
     def _remove_car_all(self):
-        # v_list = traci.vehicle.getIDList()
+        # v_list = self.traci_connect.vehicle.getIDList()
         v_list = list(self._vehID_list)
         for vehID in v_list:
-            traci.vehicle.remove(vehID)
+            self.traci_connect.vehicle.remove(vehID)
 
     def _take_action(self, vehID, action):
         steer, accel, brake = action
-        delta_t = traci.simulation.getDeltaT()
-        max_accel = traci.vehicle.getAccel(vehID)
-        max_decel = traci.vehicle.getDecel(vehID)
-        cur_speed = traci.vehicle.getSpeed(vehID)
+        delta_t = self.traci_connect.simulation.getDeltaT()
+        max_accel = self.traci_connect.vehicle.getAccel(vehID)
+        max_decel = self.traci_connect.vehicle.getDecel(vehID)
+        cur_speed = self.traci_connect.vehicle.getSpeed(vehID)
         cur_accel = max_accel * abs(accel) * delta_t
         cur_decel = max_decel * abs(brake) * delta_t
         future_accel = cur_accel - cur_decel
         future_speed = cur_speed + future_accel
-        traci.vehicle.setSpeed(vehID, future_speed)
-        cur_x, cur_y = traci.vehicle.getPosition(vehID)
+        self.traci_connect.vehicle.setSpeed(vehID, future_speed)
+        cur_x, cur_y = self.traci_connect.vehicle.getPosition(vehID)
         delta_x, delta_y = vector_decomposition(future_speed * delta_t, steer)
         next_x, next_y = cur_x + delta_x, cur_y + delta_y
-        edgeID = traci.vehicle.getRoadID(vehID)
-        lane = traci.vehicle.getLaneIndex(vehID)
-        laneID = traci.vehicle.getLaneID(vehID)
-        veh_len = traci.vehicle.getLength(vehID)
-        angle = traci.vehicle.getAngle(vehID)
+        edgeID = self.traci_connect.vehicle.getRoadID(vehID)
+        lane = self.traci_connect.vehicle.getLaneIndex(vehID)
+        laneID = self.traci_connect.vehicle.getLaneID(vehID)
+        veh_len = self.traci_connect.vehicle.getLength(vehID)
+        angle = self.traci_connect.vehicle.getAngle(vehID)
         rear_x, rear_y = vector_decomposition(veh_len, angle)
         rear_pos = [cur_x - rear_x, cur_y - rear_y]
         if len(laneID) <= 0:
             in_road = False
             match_degree = False
         else:
-            lane_pos = traci.lane.getShape(laneID)
-            width = traci.lane.getWidth(laneID)
+            lane_pos = self.traci_connect.lane.getShape(laneID)
+            width = self.traci_connect.lane.getWidth(laneID)
             pos_num = len(lane_pos)
             if pos_num <= 2:
                 # todo
@@ -201,5 +170,6 @@ class SumoSimpleEnv(BaseEnv):
                 match_degree = True
                 in_road = (in_many_shape(lane_pos, [cur_x, cur_y])
                            or in_many_shape(lane_pos, rear_pos))
-        traci.vehicle.moveToXY(vehID, edgeID, lane, next_x, next_y, steer, 2)
+        self.traci_connect.vehicle.moveToXY(
+            vehID, edgeID, lane, next_x, next_y, steer, 2)
         return in_road, match_degree

@@ -1,9 +1,7 @@
 from IPython import embed
-# from gym import error, spaces, utils
 from gym import spaces, error
 
 try:
-    import traci
     from traci import constants as tc
 except ImportError as e:
     raise error.DependencyNotInstalled(
@@ -33,9 +31,10 @@ ACCEL = [1.0, 0.2, -1.0, -0.2]
 
 class SumoLightEnv(BaseEnv):
 
-    def __init__(self, isgraph=True, area=0, carnum=100, mode='gui',
-                 step_length=0.01, simulation_end=100, seed=None):
-        super().__init__(isgraph, area, carnum, mode, step_length, simulation_end, seed)
+    def __init__(self, isgraph=True, area=0, carnum=100, mode='gui', step_length=0.01,
+                 simulation_end=100, seed=None, label='default'):
+        super().__init__(isgraph, area, carnum, mode,
+                         step_length, simulation_end, seed, label)
         # 6action and accel, brake
         self.action_space = spaces.Discrete(10)
         self.observation_space = spaces.Box(
@@ -48,20 +47,20 @@ class SumoLightEnv(BaseEnv):
         if self._mode == 'gui':
             self.screenshot_and_simulation_step()
         else:
-            traci.simulationStep()
+            self.traci_connect.simulationStep()
         observation = self._observation(vehID)
 
         # calculate reward
         reward = 0.0
-        collision_list = traci.simulation.getCollidingVehiclesIDList()
-        acheived_list = traci.simulation.getArrivedIDList()
+        collision_list = self.traci_connect.simulation.getCollidingVehiclesIDList()
+        acheived_list = self.traci_connect.simulation.getArrivedIDList()
         removed_list = self._removed_vehID_list
         if vehID not in removed_list:
             if vehID in acheived_list:
                 self._removed_vehID_list.append(vehID)
                 reward = 1.0
             elif vehID in collision_list or not is_take:
-                traci.vehicle.remove(vehID, tc.REMOVE_TELEPORT)
+                self.traci_connect.vehicle.remove(vehID, tc.REMOVE_TELEPORT)
                 self._removed_vehID_list.append(vehID)
                 reward = -1.0
 
@@ -73,26 +72,26 @@ class SumoLightEnv(BaseEnv):
         self._reposition_car()
         self._removed_vehID_list.clear()
         if self._mode == 'gui':
-            viewID = traci.gui.DEFAULT_VIEW
-            traci.gui.trackVehicle(viewID, vehID)
-            # zoom = traci.gui.getZoom()
-            traci.gui.setZoom(viewID, 5000)
+            viewID = self.traci_connect.gui.DEFAULT_VIEW
+            self.traci_connect.gui.trackVehicle(viewID, vehID)
+            # zoom = self.traci_connect.gui.getZoom()
+            self.traci_connect.gui.setZoom(viewID, 5000)
         observation = self._observation(vehID)
         return observation
 
     def _observation(self, vehID):
-        pos = list(traci.vehicle.getPosition(vehID))
+        pos = list(self.traci_connect.vehicle.getPosition(vehID))
         if pos[0] == tc.INVALID_DOUBLE_VALUE or pos[1] == tc.INVALID_DOUBLE_VALUE:
             pos[0], pos[1] = -np.inf, -np.inf
         goal_pos = self._goal[vehID]['pos']
         relative_goal_pos = list(goal_pos - np.array(pos))
-        veh_len = traci.vehicle.getLength(vehID)
-        angle = traci.vehicle.getAngle(vehID)
+        veh_len = self.traci_connect.vehicle.getLength(vehID)
+        angle = self.traci_connect.vehicle.getAngle(vehID)
         veh_vector = list(vector_decomposition(veh_len, angle))
         could_reach, cur_laneID = self._sumo_util._could_reach_junction(vehID)
         turn_direction = [0.0] * (DIRECT_FLAG + 1)
         if could_reach:
-            cur_edgeID = traci.lane.getEdgeID(cur_laneID)
+            cur_edgeID = self.traci_connect.lane.getEdgeID(cur_laneID)
             for i in range(DIRECT_FLAG):
                 direction = DIRECTION[i]
                 next_edgeID = self._graph.getNextInfoTo(cur_edgeID, direction)
@@ -105,11 +104,11 @@ class SumoLightEnv(BaseEnv):
 
     def _take_action(self, vehID, action):
         is_take = False
-        v_list = traci.vehicle.getIDList()
+        v_list = self.traci_connect.vehicle.getIDList()
         removed_list = self._removed_vehID_list
         if vehID not in v_list or vehID in removed_list:
             return is_take
-        cur_speed = traci.vehicle.getSpeed(vehID)
+        cur_speed = self.traci_connect.vehicle.getSpeed(vehID)
         if action <= DIRECT_FLAG:
             direction = DIRECTION[action]
             could_turn, _ = self._sumo_util._could_turn(vehID, direction)
@@ -120,8 +119,10 @@ class SumoLightEnv(BaseEnv):
                 self._reset_goal_element(vehID, goal_edgeID)
         else:
             accel_rate = ACCEL[action - DIRECT_FLAG - 1]
-            accel = traci.vehicle.getAccel(vehID) * abs(accel_rate)
-            decel = traci.vehicle.getDecel(vehID) * abs(accel_rate) * -1.0
+            accel = self.traci_connect.vehicle.getAccel(
+                vehID) * abs(accel_rate)
+            decel = self.traci_connect.vehicle.getDecel(
+                vehID) * abs(accel_rate) * -1.0
             future_accel = accel if accel_rate >= 0 else decel
             future_accel *= self._step_length
             future_speed = cur_speed + future_accel
@@ -129,5 +130,5 @@ class SumoLightEnv(BaseEnv):
             if future_speed < 0.0:
                 future_speed = 0.0
                 is_take = False
-            traci.vehicle.setSpeed(vehID, future_speed)
+            self.traci_connect.vehicle.setSpeed(vehID, future_speed)
         return is_take
