@@ -80,7 +80,8 @@ class SumoUtil:
         """
         cur_lane_pos = self.traci_connect.vehicle.getLanePosition(vehID)
         cur_laneID = self.traci_connect.vehicle.getLaneID(vehID)
-        embed()
+        if len(cur_laneID) <= 0:
+            embed()
         road_length = self.traci_connect.lane.getLength(cur_laneID)
         if self._is_junction(vehID):
             route = self.traci_connect.vehicle.getRoute(vehID)
