@@ -10,3 +10,7 @@
 
 # result 
 *results*
+
+# text, log or error file
+*.log
+error*
