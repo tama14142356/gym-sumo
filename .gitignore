@@ -1,5 +1,5 @@
 # python cache
-*__pycache__*
+**__pycache__**
 
 # IDE project files
 /.settings
@@ -8,8 +8,9 @@
 /.pydevproject
 /.vs*
 
-# result 
-*results*
+# result
+**results**
+**video**
 
 # text, log or error file
 *.log

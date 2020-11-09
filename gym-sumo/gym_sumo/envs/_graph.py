@@ -20,7 +20,7 @@ EDGE_CATEGORY = [0, 1]
 ROAD_CATEGORY = 0
 NONE_ROAD_CATEGORY = 1
 
-NUM_KEY = ['edge_normal', 'junction', 'lane', 'edge', 'node']
+NUM_KEY = ["edge_normal", "junction", "lane", "edge", "node"]
 EDGE_NORMAL_NUM = 0
 JUNCTION_NUM = 1
 LANE_NUM = 2
@@ -93,7 +93,7 @@ class Graph:
         if nodeIndex < len(tmpList) and nodeIndex >= 0:
             nodeID = tmpList[nodeIndex]
         if edgeID is not None:
-            index = edgeID.rfind('_')
+            index = edgeID.rfind("_")
             nodeID = edgeID[1:index]
         return nodeID
 
@@ -153,9 +153,7 @@ class Graph:
         isFinished = False
 
         # index error or not supported
-        if (curEdgeIndex >= len(tmp)
-                or curEdgeIndex < 0
-                or not self.__isDirection):
+        if curEdgeIndex >= len(tmp) or curEdgeIndex < 0 or not self.__isDirection:
             isFinished = True
 
         for lane in tmp[curEdgeIndex]:
@@ -165,8 +163,8 @@ class Graph:
                 if isFinished:
                     break
                 for edges in tmp[curEdgeIndex][lane][direct]:
-                    if edges['to'] == toEdgeID:
-                        ans[1] = edges['via']
+                    if edges["to"] == toEdgeID:
+                        ans[1] = edges["via"]
                         ans[2] = direct
                         ans[3] = lane
                         isFinished = True
@@ -183,16 +181,14 @@ class Graph:
         ans = [None, None, nextDirection, curLaneIndex]
         tmp = self.__normalEdgeConnection
         # index error or not supported
-        if (curEdgeIndex >= len(tmp)
-                or curEdgeIndex < 0
-                or not self.__isDirection):
+        if curEdgeIndex >= len(tmp) or curEdgeIndex < 0 or not self.__isDirection:
             return ans
 
         if curLaneIndex in tmp[curEdgeIndex]:
             if nextDirection in tmp[curEdgeIndex][curLaneIndex]:
                 edges = tmp[curEdgeIndex][curLaneIndex][nextDirection][0]
-                ans[0] = edges['to']
-                ans[1] = edges['via']
+                ans[0] = edges["to"]
+                ans[1] = edges["via"]
                 return ans
             else:
                 if curLaneIndex is not None:
@@ -201,13 +197,14 @@ class Graph:
         for lane in tmp[curEdgeIndex]:
             if nextDirection in tmp[curEdgeIndex][lane]:
                 edges = tmp[curEdgeIndex][lane][nextDirection][0]
-                ans[0] = edges['to']
-                ans[1] = edges['via']
+                ans[0] = edges["to"]
+                ans[1] = edges["via"]
                 ans[3] = lane
         return ans
 
-    def getNextInfoAll(self, curEdgeID, curLaneIndex=None,
-                       nextDirection=None, toEdgeID=None):
+    def getNextInfoAll(
+        self, curEdgeID, curLaneIndex=None, nextDirection=None, toEdgeID=None
+    ):
         curEdgeIndex = self.getEdgeIndex(curEdgeID)
         # get process info in the road from curEdge to toEdge
         if toEdgeID is not None:
@@ -217,24 +214,21 @@ class Graph:
         return tmp[0], tmp[1], tmp[2], tmp[3]
 
     def getNextInfoFrom(self, curEdgeID, nextDirection=None, toEdgeID=None):
-        ans = (self.getNextInfoAll(curEdgeID, None,
-                                   nextDirection, toEdgeID))
+        ans = self.getNextInfoAll(curEdgeID, None, nextDirection, toEdgeID)
         return ans[3]
 
     def getNextInfoDirect(self, curEdgeID, toEdgeID, curLaneIndex=None):
-        ans = (self.getNextInfoAll(curEdgeID, curLaneIndex,
-                                   None, toEdgeID))
+        ans = self.getNextInfoAll(curEdgeID, curLaneIndex, None, toEdgeID)
         return ans[2]
 
-    def getNextInfoVia(self, curEdgeID, curLaneIndex=None,
-                       nextDirection=None, toEdgeID=None):
-        ans = (self.getNextInfoAll(curEdgeID, curLaneIndex,
-                                   nextDirection, toEdgeID))
+    def getNextInfoVia(
+        self, curEdgeID, curLaneIndex=None, nextDirection=None, toEdgeID=None
+    ):
+        ans = self.getNextInfoAll(curEdgeID, curLaneIndex, nextDirection, toEdgeID)
         return ans[1]
 
     def getNextInfoTo(self, curEdgeID, nextDirection, curLaneIndex=None):
-        ans = (self.getNextInfoAll(curEdgeID, curLaneIndex,
-                                   nextDirection, None))
+        ans = self.getNextInfoAll(curEdgeID, curLaneIndex, nextDirection, None)
         return ans[0]
 
     def setNormalEdgeConnection(self, root=None):
@@ -256,19 +250,19 @@ class Graph:
             tmpConnectionList = [{} for i in range(num_edges)]
             attribList = self._getEdgeConnection(root)
             for attrib in attribList:
-                fromEdgeIndex = self.getEdgeIndex(attrib['from'])
-                fromLaneIndex = attrib['fromLane']
-                toEdgeID = attrib['to']
+                fromEdgeIndex = self.getEdgeIndex(attrib["from"])
+                fromLaneIndex = attrib["fromLane"]
+                toEdgeID = attrib["to"]
                 # tolane = attrib['toLane']
-                direction = attrib['dir']
-                viaEdgeID = attrib['via']
+                direction = attrib["dir"]
+                viaEdgeID = attrib["via"]
                 tmp = {}
                 tmpList = []
                 if fromLaneIndex in tmpConnectionList[fromEdgeIndex]:
                     tmp = tmpConnectionList[fromEdgeIndex][fromLaneIndex]
                     if direction in tmp:
                         tmpList = tmp[direction]
-                toEdge = {'to': toEdgeID, 'via': viaEdgeID}
+                toEdge = {"to": toEdgeID, "via": viaEdgeID}
                 tmpList.append(toEdge)
                 tmp[direction] = tmpList
                 tmpConnectionList[fromEdgeIndex][fromLaneIndex] = tmp
@@ -285,14 +279,14 @@ class Graph:
         self.__normalEdgeConnection = tmpConnectionList
 
     def updateNode(self, vehinfo):
-        isExist = vehinfo['exist']
-        vehID = vehinfo['ID']
+        isExist = vehinfo["exist"]
+        vehID = vehinfo["ID"]
         fromNodeIndex = self.getNodeIndex(vehID)
         if isExist:
             # add edge to graph
-            curEdgeID = vehinfo['curEdgeID']
+            curEdgeID = vehinfo["curEdgeID"]
             edgeIndex = self.getEdgeIndex(curEdgeID)
-            nextEdgeID = vehinfo['nextEdgeID']
+            nextEdgeID = vehinfo["nextEdgeID"]
             toNodeIndex = self.getNodeIndex(None, curEdgeID, True)
             if toNodeIndex == -1:
                 curNodeID = self.getNodeID(-1, curEdgeID)
@@ -306,45 +300,46 @@ class Graph:
             edgeIndex = -1
         self.__graph.edge_index[1][fromNodeIndex] = toNodeIndex
         # add position of vehicle as node position
-        veh_pos = vehinfo['pos'] if isExist else [0.0, 0.0]
-        self.__graph.pos[fromNodeIndex] = torch.tensor(
-            veh_pos, dtype=torch.float)
+        veh_pos = vehinfo["pos"] if isExist else [0.0, 0.0]
+        self.__graph.pos[fromNodeIndex] = torch.tensor(veh_pos, dtype=torch.float)
         # add feature of vehicle as node
         if self.__isNode_attr:
             category_val = (
-                VEHICLE_CATEGORY if isExist else NONE_VEHICLE_JUNCTION_CATEGORY)
+                VEHICLE_CATEGORY if isExist else NONE_VEHICLE_JUNCTION_CATEGORY
+            )
             category = NODE_CATEGORY[category_val]
-            speed = vehinfo['speed'] if isExist else 0.0
+            speed = vehinfo["speed"] if isExist else 0.0
             tmp_feature = [speed, category]
             feature = flatten_list(tmp_feature)
-            self.__graph.x[fromNodeIndex] = torch.tensor(
-                feature, dtype=torch.float)
+            self.__graph.x[fromNodeIndex] = torch.tensor(feature, dtype=torch.float)
         # add feature of edge(veh-> tonode)
         if self.__isEdge_attr:
-            speed = (0.0 if edgeIndex < 0
-                     else self.__graph.edge_attr.numpy()[edgeIndex][0])
+            speed = (
+                0.0 if edgeIndex < 0 else self.__graph.edge_attr.numpy()[edgeIndex][0]
+            )
             # calculation edge(veh->tonode) length
             toPos = self.__graph.pos.numpy()[toNodeIndex]
-            length = self._calcDistance(vehinfo['pos'], toPos)
+            length = self._calcDistance(vehinfo["pos"], toPos)
             category_val = NONE_ROAD_CATEGORY if edgeIndex < 0 else ROAD_CATEGORY
             category = EDGE_CATEGORY[category_val]
             tmp_attrib = [speed, length, category]
             attrib = flatten_list(tmp_attrib)
             self.__graph.edge_attr[fromNodeIndex] = torch.tensor(
-                attrib, dtype=torch.float)
+                attrib, dtype=torch.float
+            )
 
     # add vehicle as node
     def addNode(self, vehinfo):
-        isExist = vehinfo['exist']
-        vehID = vehinfo['ID']
+        isExist = vehinfo["exist"]
+        vehID = vehinfo["ID"]
         # add vehicleID as nodeID
         self._addNodeID(vehID)
         fromNodeIndex = self.getNodeIndex(vehID)
         if isExist:
             # add edge to graph
-            curEdgeID = vehinfo['curEdgeID']
+            curEdgeID = vehinfo["curEdgeID"]
             edgeIndex = self.getEdgeIndex(curEdgeID)
-            nextEdgeID = vehinfo['nextEdgeID']
+            nextEdgeID = vehinfo["nextEdgeID"]
             toNodeIndex = self.getNodeIndex(None, curEdgeID, True)
             if toNodeIndex == -1:
                 curNodeID = self.getNodeID(-1, curEdgeID)
@@ -363,16 +358,17 @@ class Graph:
         edge_index = torch.tensor(tmp, dtype=torch.long)
         self.__graph.edge_index = edge_index
         # add position of vehicle as node position
-        veh_pos = vehinfo['pos'] if isExist else [0.0, 0.0]
+        veh_pos = vehinfo["pos"] if isExist else [0.0, 0.0]
         tmp = np.append(self.__graph.pos.numpy(), [veh_pos], axis=0)
         pos = torch.tensor(tmp, dtype=torch.float)
         self.__graph.pos = pos
         # add feature of vehicle as node
         if self.__isNode_attr:
             category_val = (
-                VEHICLE_CATEGORY if isExist else NONE_VEHICLE_JUNCTION_CATEGORY)
+                VEHICLE_CATEGORY if isExist else NONE_VEHICLE_JUNCTION_CATEGORY
+            )
             category = NODE_CATEGORY[category_val]
-            speed = vehinfo['speed'] if isExist else 0.0
+            speed = vehinfo["speed"] if isExist else 0.0
             tmp_feature = [speed, category]
             feature = flatten_list(tmp_feature)
             tmp = np.append(self.__graph.x.numpy(), [feature], axis=0)
@@ -380,11 +376,12 @@ class Graph:
             self.__graph.x = x
         # add feature of edge(veh-> tonode)
         if self.__isEdge_attr:
-            speed = (0.0 if edgeIndex < 0
-                     else self.__graph.edge_attr.numpy()[edgeIndex][0])
+            speed = (
+                0.0 if edgeIndex < 0 else self.__graph.edge_attr.numpy()[edgeIndex][0]
+            )
             # calculation edge(veh->tonode) length
             toPos = self.__graph.pos.numpy()[toNodeIndex]
-            length = self._calcDistance(vehinfo['pos'], toPos)
+            length = self._calcDistance(vehinfo["pos"], toPos)
             category_val = NONE_ROAD_CATEGORY if edgeIndex < 0 else ROAD_CATEGORY
             category = EDGE_CATEGORY[category_val]
             tmp_attrib = [speed, length, category]
@@ -395,7 +392,8 @@ class Graph:
 
     def _calcDistance(self, fromPos, toPos):
         return float(
-            np.sqrt((toPos[0] - fromPos[0])**2 + (toPos[1] - fromPos[1])**2))
+            np.sqrt((toPos[0] - fromPos[0]) ** 2 + (toPos[1] - fromPos[1]) ** 2)
+        )
 
     def _addNodeID(self, nodeID):
         if nodeID not in self.__nodeIDList:
@@ -410,18 +408,17 @@ class Graph:
         return feature
 
     def _getPosNode(self, attrib):
-        self._addNodeID(attrib['id'])
-        pos = [float(attrib['x']), float(attrib['y'])]
+        self._addNodeID(attrib["id"])
+        pos = [float(attrib["x"]), float(attrib["y"])]
         return pos
 
     def _generateNode(self, root):
         posList = []
         xList = []
         for child in root:
-            if child.tag == 'junction':
+            if child.tag == "junction":
                 self.__num[NUM_KEY[JUNCTION_NUM]] += 1
-                if (child.attrib['type'] is None
-                        or child.attrib['type'] != 'internal'):
+                if child.attrib["type"] is None or child.attrib["type"] != "internal":
                     posList.append(self._getPosNode(child.attrib))
                     xList.append(self._getFeatureNode(child.attrib))
         x = torch.tensor(xList, dtype=torch.float)
@@ -430,10 +427,10 @@ class Graph:
 
     def _getFeatureEdge(self, attrib):
         for child in attrib:
-            if child.tag == 'lane':
+            if child.tag == "lane":
                 self.__num[NUM_KEY[LANE_NUM]] += 1
-                speed = float(child.attrib['speed'])
-                length = float(child.attrib['length'])
+                speed = float(child.attrib["speed"])
+                length = float(child.attrib["length"])
                 category = float(EDGE_CATEGORY[ROAD_CATEGORY])
                 tmp = [speed, length, category]
                 feature = flatten_list(tmp)
@@ -449,8 +446,8 @@ class Graph:
         return : long, long (nodeID hash code)
         """
         # get nodeID(string)
-        fromNodeID = attrib['from']
-        toNodeID = attrib['to']
+        fromNodeID = attrib["from"]
+        toNodeID = attrib["to"]
 
         # nodeID(string) -> torch.long
         self._addNodeID(fromNodeID)
@@ -468,28 +465,27 @@ class Graph:
         edgeIDList = []
         normalEdgeIDList = []
         for child in root:
-            if child.tag == 'edge':
+            if child.tag == "edge":
                 self.__num[NUM_KEY[EDGE_NUM]] += 1
-                edgeID = child.attrib['id']
+                edgeID = child.attrib["id"]
                 # avoid internel edges
-                if 'function' in child.attrib:
-                    if child.attrib['function'] == 'internal':
+                if "function" in child.attrib:
+                    if child.attrib["function"] == "internal":
                         if edgeID not in edgeIDList:
                             edgeIDList.append(edgeID)
                         continue
-                if 'from' in child.attrib:
+                if "from" in child.attrib:
                     if edgeID in normalEdgeIDList:
                         continue
                     normalEdgeIDList.append(edgeID)
                     self.__num[NUM_KEY[EDGE_NORMAL_NUM]] += 1
                     # generate edge_index
-                    fromNodeIndex, toNodeIndex \
-                        = self._convNodeLong(child.attrib)
+                    fromNodeIndex, toNodeIndex = self._convNodeLong(child.attrib)
                     fromList.append(fromNodeIndex)
                     toList.append(toNodeIndex)
                     # get feature of edge(length)
                     xList.append(self._getFeatureEdge(child))
-        normalEdgeIDList[len(normalEdgeIDList):len(edgeIDList)] = edgeIDList
+        normalEdgeIDList[len(normalEdgeIDList) : len(edgeIDList)] = edgeIDList
         self.__edgeIDList = normalEdgeIDList
         edge_attr = torch.tensor(xList, dtype=torch.float)
         edge_index = torch.tensor([fromList, toList], dtype=torch.long)
@@ -509,8 +505,7 @@ class Graph:
         tmp = None
         if self.__isEdge_attr:
             if self.__isNode_attr:
-                tmp = Data(x=x, pos=pos, edge_index=edge_index,
-                           edge_attr=edge_attr)
+                tmp = Data(x=x, pos=pos, edge_index=edge_index, edge_attr=edge_attr)
             else:
                 tmp = Data(pos=pos, edge_index=edge_index, edge_attr=edge_attr)
         else:
@@ -545,10 +540,10 @@ class Graph:
         """
         edgeConnectionList = []
         for child in root:
-            if child.tag == 'connection':
-                if 'from' in child.attrib:
+            if child.tag == "connection":
+                if "from" in child.attrib:
                     if isnormal:
-                        if child.attrib['from'][0] != ':':
+                        if child.attrib["from"][0] != ":":
                             edgeConnectionList.append(child.attrib)
                     else:
                         edgeConnectionList.append(child.attrib)
@@ -561,7 +556,7 @@ class Graph:
                 nodePositionTuple[i] = tuple(element.numpy())
         return nodePositionTuple
 
-    def showgraph(self, data, ispos=True, title='test', isLabel=False):
+    def showgraph(self, data, ispos=True, title="test", isLabel=False):
         # networkxのグラフに変換
         nxg = to_networkx(data)
         # print(list(nxg.edges))
@@ -573,7 +568,7 @@ class Graph:
         pos = self.getPositionTuple(data)
         draw_pos = nx.spring_layout(nxg, pos=pos, seed=0)
 
-        cmap = plt.get_cmap('tab10')
+        cmap = plt.get_cmap("tab10")
         labels = np.zeros(data.num_nodes)
         if isLabel:
             # ノードの色設定
@@ -589,17 +584,20 @@ class Graph:
             nx.draw(nxg, pos, with_labels=True)
         else:
             nx.draw_networkx_nodes(
-                nxg, draw_pos,
+                nxg,
+                draw_pos,
                 node_size=[v / pr_max * 1000 for v in pr.values()],
-                node_color=colors, alpha=0.5)
-            nx.draw_networkx_edges(nxg, draw_pos, arrowstyle='-', alpha=0.2)
+                node_color=colors,
+                alpha=0.5,
+            )
+            nx.draw_networkx_edges(nxg, draw_pos, arrowstyle="-", alpha=0.2)
             nx.draw_networkx_labels(nxg, draw_pos, font_size=10)
 
         plt.title(title)
         plt.show()
 
     def check_graph(self, data):
-        '''グラフ情報を表示'''
+        """グラフ情報を表示"""
         print("グラフ構造:", data)
         print("グラフのキー: ", data.keys)
         print("ノード数:", data.num_nodes)
@@ -608,15 +606,15 @@ class Graph:
         print("孤立したノードの有無:", data.contains_isolated_nodes())
         print("自己ループの有無:", data.contains_self_loops())
         print("====== ノードの特徴量:x ======")
-        print(data['x'])
+        print(data["x"])
         print("====== ノードのクラス:y ======")
-        print(data['y'])
+        print(data["y"])
         print("====== ノードの座標:pos ======")
-        print(data['pos'])
+        print(data["pos"])
         print("========= エッジ形状:edge_index =========")
-        print(data['edge_index'])
+        print(data["edge_index"])
         print("========= エッジの特徴量:edge_attr =========")
-        print(data['edge_attr'])
+        print(data["edge_attr"])
 
 
 # sumoBinary = os.environ['SUMO_HOME']

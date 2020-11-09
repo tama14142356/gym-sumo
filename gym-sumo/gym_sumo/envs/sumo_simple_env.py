@@ -5,7 +5,10 @@ try:
     from traci import constants as tc
 except ImportError as e:
     raise error.DependencyNotInstalled(
-        "{}. (HINT: you can install sumo or set the path for sumo library by reading README.md)".format(e))
+        "{}. (HINT: you can install sumo or set the path for sumo library by reading README.md)".format(
+            e
+        )
+    )
 
 import numpy as np
 
@@ -27,24 +30,34 @@ NONE_VEH_CATEGORY = 0
 
 
 class SumoSimpleEnv(BaseEnv):
-
-    def __init__(self, isgraph=True, area=0, carnum=100, mode='gui', step_length=0.01,
-                 simulation_end=100, seed=None, label='default'):
-        super().__init__(isgraph, area, carnum, mode,
-                         step_length, simulation_end, seed, label)
+    def __init__(
+        self,
+        isgraph=True,
+        area=0,
+        carnum=100,
+        mode="gui",
+        step_length=0.01,
+        simulation_end=100,
+        seed=None,
+        label="default",
+    ):
+        super().__init__(
+            isgraph, area, carnum, mode, step_length, simulation_end, seed, label
+        )
         self.vehID = list(self._vehID_list)[0]
         # steer, accel, brake
         low = np.array([-np.inf, -1.0, 0.0])
         high = np.array([np.inf, 1.0, 1.0])
         self.action_space = spaces.Box(low=low, high=high, dtype=np.float32)
         self.observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, dtype=np.float, shape=((3 + (VISIBLE_NUM * 3)), ))
+            low=-np.inf, high=np.inf, dtype=np.float, shape=((3 + (VISIBLE_NUM * 3)),)
+        )
 
     def step(self, action):
         # determine next step action
         vehID = list(self._vehID_list)[0]
-        reward_state = (self._take_action(vehID, action))
-        if self._mode == 'gui':
+        reward_state = self._take_action(vehID, action)
+        if self._mode == "gui":
             self.screenshot_and_simulation_step()
         else:
             self.traci_connect.simulationStep()
@@ -56,16 +69,16 @@ class SumoSimpleEnv(BaseEnv):
     def reset(self):
         cur_time = self.traci_connect.simulation.getTime()
         self._reset_simulate_time(cur_time)
-        self._update_add_car()
+        self._reposition_car()
         self._removed_vehID_list.clear()
         vehID = list(self._vehID_list)[0]
-        if self._mode == 'gui':
+        if self._mode == "gui":
             viewID = self.traci_connect.gui.DEFAULT_VIEW
             self.traci_connect.gui.trackVehicle(viewID, vehID)
             # zoom = self.traci_connect.gui.getZoom()
             self.traci_connect.gui.setZoom(viewID, 5000)
         observation = self._observation(vehID)
-        if self._mode == 'gui':
+        if self._mode == "gui":
             self.screenshot_and_simulation_step()
         else:
             self.traci_connect.simulationStep()
@@ -98,8 +111,7 @@ class SumoSimpleEnv(BaseEnv):
         if pos[0] == tc.INVALID_DOUBLE_VALUE or pos[1] == tc.INVALID_DOUBLE_VALUE:
             pos[0], pos[1] = -np.inf, -np.inf
         pos_list = [pos]
-        neighbor_list = self._sumo_util._get_neighbor_list(
-            pos_list, VISIBLE_RANGE)
+        neighbor_list = self._sumo_util._get_neighbor_list(pos_list, VISIBLE_RANGE)
         level = 3 + (VISIBLE_NUM * 3)
         for neighbor in neighbor_list:
             v_obs = [0.0] * level
@@ -161,15 +173,17 @@ class SumoSimpleEnv(BaseEnv):
                 # 道路から外れているかどうかの判定をする。
                 # これにより、報酬を決定したいのと、目的地についてるのかも決めたい。
                 degree = get_degree(lane_pos[0], lane_pos[1])
-                road_pos = get_rectangle_positions(
-                    lane_pos[0], lane_pos[1], width)
-                in_road = (in_rect(road_pos, [cur_x, cur_y])
-                           or in_rect(road_pos, rear_pos))
+                road_pos = get_rectangle_positions(lane_pos[0], lane_pos[1], width)
+                in_road = in_rect(road_pos, [cur_x, cur_y]) or in_rect(
+                    road_pos, rear_pos
+                )
                 match_degree = abs(degree - get_base_angle(angle)) < 0.01
             else:
                 match_degree = True
-                in_road = (in_many_shape(lane_pos, [cur_x, cur_y])
-                           or in_many_shape(lane_pos, rear_pos))
+                in_road = in_many_shape(lane_pos, [cur_x, cur_y]) or in_many_shape(
+                    lane_pos, rear_pos
+                )
         self.traci_connect.vehicle.moveToXY(
-            vehID, edgeID, lane, next_x, next_y, steer, 2)
+            vehID, edgeID, lane, next_x, next_y, steer, 2
+        )
         return in_road, match_degree

@@ -4,7 +4,10 @@ try:
     from traci import constants as tc
 except ImportError as e:
     raise error.DependencyNotInstalled(
-        "{}. (HINT: you can install sumo or set the path for sumo library by reading README.md)".format(e))
+        "{}. (HINT: you can install sumo or set the path for sumo library by reading README.md)".format(
+            e
+        )
+    )
 
 import numpy as np
 
@@ -14,25 +17,38 @@ from ._graph import Graph
 from ._util import flatten_list
 from .sumo_base_env import SumoBaseEnv as BaseEnv
 from gym_sumo.envs.sumo_base_env import STRAIGHT, DIRECTION
+
 # action
 STOP = 6
 
 
 class SumoEnv(BaseEnv):
-
-    def __init__(self, isgraph=True, area=0, carnum=100, mode='gui', step_length=0.01,
-                 simulation_end=100, seed=None, label='default'):
-        super().__init__(isgraph, area, carnum, mode,
-                         step_length, simulation_end, seed, label)
+    def __init__(
+        self,
+        isgraph=True,
+        area=0,
+        carnum=100,
+        mode="gui",
+        step_length=0.01,
+        simulation_end=100,
+        seed=None,
+        label="default",
+    ):
+        super().__init__(
+            isgraph, area, carnum, mode, step_length, simulation_end, seed, label
+        )
         # 7action and accel, brake
         self.action_space = []
         for i in range(carnum):
             self.action_space.append(
-                spaces.Tuple((spaces.Discrete(7),
-                              spaces.Box(low=-1, high=1, shape=(1, )))))
+                spaces.Tuple(
+                    (spaces.Discrete(7), spaces.Box(low=-1, high=1, shape=(1,)))
+                )
+            )
         observation = self._observation()
         self.observation_space = spaces.Box(
-            low=0, high=np.inf, shape=(np.shape(observation)))
+            low=0, high=np.inf, shape=(np.shape(observation))
+        )
         self.reward_range = [(-5, 10) for i in range(carnum)]
 
     def _is_dones(self):
@@ -75,7 +91,7 @@ class SumoEnv(BaseEnv):
         self.traci_connect.simulationStep()
         return observation
 
-    def render(self, mode='human'):
+    def render(self, mode="human"):
         if self._isgraph:
             self._graph.check_graph(self.data)
         print(self.data)
@@ -108,8 +124,7 @@ class SumoEnv(BaseEnv):
                 else:
                     if vehID not in removed_list:
                         reward -= 2
-                        self.traci_connect.vehicle.remove(
-                            vehID, tc.REMOVE_VAPORIZED)
+                        self.traci_connect.vehicle.remove(vehID, tc.REMOVE_VAPORIZED)
                         self._removeID_list.append(vehID)
 
         return reward_list
@@ -119,18 +134,16 @@ class SumoEnv(BaseEnv):
         if self._isgraph:
             for vehID in vehID_list:
                 v_info = {}
-                v_info['ID'] = vehID
-                v_info['pos'] = list(
-                    self.traci_connect.vehicle.getPosition(vehID))
-                v_info['speed'] = [self.traci_connect.vehicle.getSpeed(vehID)]
-                v_info['exist'] = (v_info['speed'] != tc.INVALID_DOUBLE_VALUE)
-                v_info['curEdgeID'] = self.traci_connect.vehicle.getRoadID(
-                    vehID)
+                v_info["ID"] = vehID
+                v_info["pos"] = list(self.traci_connect.vehicle.getPosition(vehID))
+                v_info["speed"] = [self.traci_connect.vehicle.getSpeed(vehID)]
+                v_info["exist"] = v_info["speed"] != tc.INVALID_DOUBLE_VALUE
+                v_info["curEdgeID"] = self.traci_connect.vehicle.getRoadID(vehID)
                 road = self.traci_connect.vehicle.getRoute(vehID)
                 road_index = self.traci_connect.vehicle.getRouteIndex(vehID)
-                v_info['nextEdgeID'] = None
+                v_info["nextEdgeID"] = None
                 if len(road) > road_index:
-                    v_info['nextEdgeID'] = road[road_index + 1]
+                    v_info["nextEdgeID"] = road[road_index + 1]
                 if self.__is_init:
                     self._graph.addNode(v_info)
                 else:
@@ -177,7 +190,7 @@ class SumoEnv(BaseEnv):
         end = num_node * num_node_features
         x_list = [] if start < end else None
         for i in range(start, end, num_node_features):
-            x = observation[i:i + num_node_features].astype(np.float)
+            x = observation[i : i + num_node_features].astype(np.float)
             x_list.append(x)
         data.x = torch.tensor(x_list, dtype=torch.float)
         num_edge = obs.num_edges
@@ -196,7 +209,7 @@ class SumoEnv(BaseEnv):
         end = start + num_edge * num_edge_features
         edge_attr = [] if start < end else None
         for i in range(start, end, num_edge_features):
-            tmp = observation[i:i + num_edge_features]
+            tmp = observation[i : i + num_edge_features]
             edge_attr.append(tmp)
         data.edge_attr = torch.tensor(edge_attr, dtype=torch.float)
         pos_dim = 0 if obs.pos is None else len(obs.pos[0])
@@ -204,7 +217,7 @@ class SumoEnv(BaseEnv):
         end = start + num_node * pos_dim
         pos = [] if start < end else None
         for i in range(start, end, pos_dim):
-            tmp = observation[i:i + pos_dim]
+            tmp = observation[i : i + pos_dim]
             pos.append(tmp)
         data.pos = torch.tensor(pos, dtype=torch.float)
         return data
@@ -232,21 +245,20 @@ class SumoEnv(BaseEnv):
             direction = DIRECTION[action[0]]
             if self._sumo_util._could_turn(vehID, direction)[0]:
                 if is_junction:
-                    route_index = self.traci_connect.vehicle.getRouteIndex(
-                        vehID)
+                    route_index = self.traci_connect.vehicle.getRouteIndex(vehID)
                     route = self.traci_connect.vehicle.getRoute(vehID)
                 if self._sumo_util.turn(vehID, direction):
                     is_take = True
             else:
                 if is_junction:
-                    route_index = self.traci_connect.vehicle.getRouteIndex(
-                        vehID)
+                    route_index = self.traci_connect.vehicle.getRouteIndex(vehID)
                     route = self.traci_connect.vehicle.getRoute(vehID)
                     if route_index + 1 < len(route):
                         toEdgeID = route[route_index + 1]
                         preEdgeID = route[route_index]
                         direct = self._graph.getNextInfoDirect(
-                            curEdgeID=preEdgeID, toEdgeID=toEdgeID)
+                            curEdgeID=preEdgeID, toEdgeID=toEdgeID
+                        )
                         if direct == direction:
                             is_take = True
                 else:
@@ -260,11 +272,10 @@ class SumoEnv(BaseEnv):
         length = 0
         num = len(route)
         for i, edgeID in enumerate(route):
-            laneID = edgeID + '_0'
+            laneID = edgeID + "_0"
             length += self.traci_connect.lane.getLength(laneID)
             if i < num - 1:
                 next_edgeID = route[i + 1]
-                via_laneID = self._graph.getNextInfoVia(
-                    edgeID, toEdgeID=next_edgeID)
+                via_laneID = self._graph.getNextInfoVia(edgeID, toEdgeID=next_edgeID)
                 length += self.traci_connect.lane.getLength(via_laneID)
         return length

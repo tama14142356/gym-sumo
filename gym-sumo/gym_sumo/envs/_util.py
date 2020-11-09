@@ -83,8 +83,9 @@ def _add_exclude_list(source_list, add_exclude_list, index):
     return exclude_set_list
 
 
-def random_tuple(a, b, num=2, start_exclude=[], exclude=[],
-                 random_state=DEFAULT_RANDOM_STATE):
+def random_tuple(
+    a, b, num=2, start_exclude=[], exclude=[], random_state=DEFAULT_RANDOM_STATE
+):
     """create random tuple which has num element
        but, first element is chosen from
             integers which isn't inlcluded in start_exclude
@@ -111,7 +112,7 @@ def random_tuple(a, b, num=2, start_exclude=[], exclude=[],
         end = random_int(a, b, num - 1, end_exclude_list, random_state)
         ns = flatten_list([start, end])
     for nstmp in ns:
-        index_tuple = index_tuple + (nstmp, )
+        index_tuple = index_tuple + (nstmp,)
     return index_tuple
 
 
@@ -216,7 +217,7 @@ def get_base_angle(angle):
     abs_angle = abs(angle)
     n = int(abs_angle // 360)
     abs_base_angle = abs_angle - float(360 * n)
-    base_angle = (abs_base_angle if angle >= 0.0 else abs_base_angle + 360.0)
+    base_angle = abs_base_angle if angle >= 0.0 else abs_base_angle + 360.0
     return base_angle
 
 
@@ -295,8 +296,7 @@ def get_rectangle_positions(start_pos, target_pos, width):
     rotate_vertical = np.cos(theta) + 1j * np.sin(theta)
     vertical_vector = rotate_vertical * complex_number * width_len
     rectangle = []
-    vertical_vector_ndarray = np.array(
-        [vertical_vector.real, vertical_vector.imag])
+    vertical_vector_ndarray = np.array([vertical_vector.real, vertical_vector.imag])
     pos = start_pos + vertical_vector_ndarray
     rectangle.append(pos)
     pos = start_pos - vertical_vector_ndarray
@@ -338,8 +338,12 @@ def in_rect(rect, target):
     vector_cross_cd_ce = np.cross(vector_cd, vector_ce)
     vector_cross_da_de = np.cross(vector_da, vector_de)
 
-    return (vector_cross_ab_ae < 0 and vector_cross_bc_be < 0
-            and vector_cross_cd_ce < 0 and vector_cross_da_de < 0)
+    return (
+        vector_cross_ab_ae < 0
+        and vector_cross_bc_be < 0
+        and vector_cross_cd_ce < 0
+        and vector_cross_da_de < 0
+    )
 
 
 def in_many_shape(rect, target):

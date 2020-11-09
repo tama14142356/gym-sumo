@@ -1,6 +1,8 @@
 import gym
+
 # from gym import error, spaces, utils
 from gym import spaces, error
+
 # from gym.utils import seeding
 
 import os
@@ -12,7 +14,10 @@ try:
     from traci.exceptions import TraCIException
 except ImportError as e:
     raise error.DependencyNotInstalled(
-        "{}. (HINT: you can install sumo or set the path for sumo library by reading README.md)".format(e))
+        "{}. (HINT: you can install sumo or set the path for sumo library by reading README.md)".format(
+            e
+        )
+    )
 
 import numpy as np
 
@@ -22,16 +27,22 @@ from ._util import random_tuple
 
 
 class SumoExtraHardEnv(gym.Env):
-
-    def __init__(self, isgraph=True, area='nishiwaseda', carnum=100,
-                 mode='gui', step_length=0.01, simulation_end=100):
+    def __init__(
+        self,
+        isgraph=True,
+        area="nishiwaseda",
+        carnum=100,
+        mode="gui",
+        step_length=0.01,
+        simulation_end=100,
+    ):
         super().__init__()
-        sumoConfig = 'sumo_configs/' + area
+        sumoConfig = "sumo_configs/" + area
         sumoMap = os.path.join(os.path.dirname(__file__), sumoConfig)
-        self.__netpath = os.path.join(sumoMap, 'osm.net.xml')
+        self.__netpath = os.path.join(sumoMap, "osm.net.xml")
 
-        self.metadata = {'render.modes': ['human']}
-        self.__sumocfg = os.path.join(sumoMap, 'osm.sumocfg')
+        self.metadata = {"render.modes": ["human"]}
+        self.__sumocfg = os.path.join(sumoMap, "osm.sumocfg")
         self.__carnum = carnum
         self.__mode = mode
         self.__vehIDList = {}
@@ -51,13 +62,19 @@ class SumoExtraHardEnv(gym.Env):
         for i in range(carnum):
             self.action_space.append(
                 spaces.Tuple(
-                    (spaces.Discrete(7),
-                     spaces.Box(low=np.array([-1.0], dtype=np.float32),
-                                high=np.array([1.0], dtype=np.float32),
-                                dtype=np.float32))))
-        self.observation_space = spaces.Box(low=1,
-                                            high=initGraph.num_edges,
-                                            shape=(np.shape(self.observation)))
+                    (
+                        spaces.Discrete(7),
+                        spaces.Box(
+                            low=np.array([-1.0], dtype=np.float32),
+                            high=np.array([1.0], dtype=np.float32),
+                            dtype=np.float32,
+                        ),
+                    )
+                )
+            )
+        self.observation_space = spaces.Box(
+            low=1, high=initGraph.num_edges, shape=(np.shape(self.observation))
+        )
         self.reward_range = [(-5, 10) for i in range(carnum)]
 
     def _isDone(self, vehID):
@@ -114,14 +131,13 @@ class SumoExtraHardEnv(gym.Env):
         self.routeEdge = []
         # traci start & init simulate
         self.initSimulator(mode=mode, step_length=self.__stepLength)
-        self.curVehicle = CurVehicle(
-            self.__vehIDList, self.__stepLength, self.__graph)
+        self.curVehicle = CurVehicle(self.__vehIDList, self.__stepLength, self.__graph)
         observation = self.observation()
         self.curVehicle.setInValid()
         traci.simulationStep()
         return observation
 
-    def render(self, mode='human'):
+    def render(self, mode="human"):
         if self.__isgraph:
             self.__graph.check_graph(self.observation)
         print(self.observation)
@@ -144,7 +160,7 @@ class SumoExtraHardEnv(gym.Env):
             if vehID in v_list and vehID not in removedList:
                 if isTakeAction[i]:
                     curLength = traci.vehicle.getDistance(vehID)
-                    + self.curVehicle.getCurLanePos(vehID)
+                    +self.curVehicle.getCurLanePos(vehID)
                     totalLen = self.curVehicle.getRouteLength(vehID)
                     # if this car has never moved, reward=0
                     tmp = 0
@@ -173,11 +189,9 @@ class SumoExtraHardEnv(gym.Env):
             originGraph = self.__graph.getGraph()
             for vehID in vehIDList:
                 v_info = {}
-                v_info['pos'] = list(map(float,
-                                         self.curVehicle.getCurPos(vehID)))
-                v_info['speed'] = [float(self.curVehicle.getCurSpeed(vehID))]
-                self.__graph.addNode(vehID,
-                                     traci.vehicle.getRoadID(vehID), v_info)
+                v_info["pos"] = list(map(float, self.curVehicle.getCurPos(vehID)))
+                v_info["speed"] = [float(self.curVehicle.getCurSpeed(vehID))]
+                self.__graph.addNode(vehID, traci.vehicle.getRoadID(vehID), v_info)
             # print(self.__graph.graph, "obs")
             observation = self.__graph.getGraph()
             self.__graph.setGraph(originGraph)
@@ -190,30 +204,39 @@ class SumoExtraHardEnv(gym.Env):
             observation.append(v_info)
         return observation
 
-    def initSimulator(self, mode='gui', routing_alg='dijkstra',
-                      step_length=0.01):
+    def initSimulator(self, mode="gui", routing_alg="dijkstra", step_length=0.01):
         sumocfg = self.__sumocfg
         self.__stepLength = step_length
         sumoCommand = mode
-        if mode == 'gui':
-            sumoCommand = 'sumo-gui'
-        elif mode == 'cui':
-            sumoCommand = 'sumo'
+        if mode == "gui":
+            sumoCommand = "sumo-gui"
+        elif mode == "cui":
+            sumoCommand = "sumo"
         else:
             raise AttributeError("not supported mode!!")
-        sumoCmd = [sumoCommand, '-c', sumocfg, '--routing-algorithm',
-                   routing_alg, '--step-length', str(step_length),
-                   '--collision.action', 'remove',
-                   '--collision.check-junctions', str(True),
-                   '--tls.all-off', str(True)]
+        sumoCmd = [
+            sumoCommand,
+            "-c",
+            sumocfg,
+            "--routing-algorithm",
+            routing_alg,
+            "--step-length",
+            str(step_length),
+            "--collision.action",
+            "remove",
+            "--collision.check-junctions",
+            str(True),
+            "--tls.all-off",
+            str(True),
+        ]
         traci.start(sumoCmd, numRetries=100)
         self.__vehIDList.clear()
         self.addCar(self.__carnum)
 
     def addCar(self, carnum):
         for i in range(carnum):
-            vehID = 'veh{}'.format(i)
-            routeID = 'route{}'.format(i)
+            vehID = "veh{}".format(i)
+            routeID = "route{}".format(i)
             self.__vehIDList[vehID] = routeID
             fromEdgeID, _ = self.generateRoute(routeID)
             start = self.__graph.getEdgeIndex(fromEdgeID)
@@ -223,15 +246,16 @@ class SumoExtraHardEnv(gym.Env):
                 traci.vehicle.add(vehID, routeID)
                 # set speed mode
                 traci.vehicle.setSpeedMode(vehID, 0)
-                laneID = fromEdgeID + '_0'
-                length = min(traci.vehicle.getLength(vehID),
-                             traci.lane.getLength(laneID))
+                laneID = fromEdgeID + "_0"
+                length = min(
+                    traci.vehicle.getLength(vehID), traci.lane.getLength(laneID)
+                )
                 # insert car instantly
                 traci.vehicle.moveTo(vehID, laneID, length)
                 traci.vehicle.setSpeed(vehID, 0.0)
 
     def generateRoute(self, routeID):
-        num_edge = self.__graph.getNum('edge_normal') - 1
+        num_edge = self.__graph.getNum("edge_normal") - 1
         fromEdgeID = None
         toEdgeID = None
         for i in range(10):
@@ -262,7 +286,7 @@ class SumoExtraHardEnv(gym.Env):
             newRoute = traci.simulation.findRoute(nextEdgeID, targetEdgeID)
             # print(newRoute, "newroute")
             newEdgeList = [curEdgeID]
-            newEdgeList[len(newEdgeList):len(newRoute.edges)] = newRoute.edges
+            newEdgeList[len(newEdgeList) : len(newRoute.edges)] = newRoute.edges
             if len(newRoute.edges) == 0:
                 print(vehID, "empty")
                 newEdgeList.append(nextEdgeID)
@@ -283,33 +307,35 @@ class SumoExtraHardEnv(gym.Env):
         if vehID in removedList:
             return False
         curSpeed = self.curVehicle.getCurSpeed(vehID, vehIndex=vehIndex)
-        futureSpeed = self.curVehicle.changeSpeed(vehID, action[1][0],
-                                                  vehIndex=vehIndex)
-        curPos, curLaneID = self.curVehicle.calcCurLanePos(vehID,
-                                                           vehIndex=vehIndex)
+        futureSpeed = self.curVehicle.changeSpeed(
+            vehID, action[1][0], vehIndex=vehIndex
+        )
+        curPos, curLaneID = self.curVehicle.calcCurLanePos(vehID, vehIndex=vehIndex)
         if curLaneID is None or len(curLaneID) <= 0:
             return False
         curEdgeID = traci.lane.getEdgeID(curLaneID)
         if action[0] == STOP:
             self.curVehicle.setCurAccel(
-                vehID, -curSpeed * self.__stepLength, vehIndex=vehIndex)
+                vehID, -curSpeed * self.__stepLength, vehIndex=vehIndex
+            )
             isTake = True
         else:
             direction = DIRECTION[action[0]]
-            if self.curVehicle.couldTurn(futureSpeed, vehID,
-                                         vehIndex=vehIndex):
+            if self.curVehicle.couldTurn(futureSpeed, vehID, vehIndex=vehIndex):
                 if self.turn(vehID, curEdgeID, direction):
                     isTake = True
             else:
                 if self.curVehicle.isJunction(vehID, vehIndex, curEdgeID):
                     routeIndex = self.curVehicle.getCurRouteIndex(
-                        vehID, vehIndex=vehIndex)
+                        vehID, vehIndex=vehIndex
+                    )
                     route = traci.vehicle.getRoute(vehID)
                     if routeIndex + 1 < len(route):
                         toEdgeID = route[routeIndex + 1]
                         preEdgeID = route[routeIndex]
                         direct = self.__graph.getnextInfoDirect(
-                            curEdgeID=preEdgeID, toEdgeID=toEdgeID)
+                            curEdgeID=preEdgeID, toEdgeID=toEdgeID
+                        )
                         if direct == direction:
                             isTake = True
                 else:

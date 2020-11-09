@@ -5,7 +5,10 @@ try:
     from traci import constants as tc
 except ImportError as e:
     raise error.DependencyNotInstalled(
-        "{}. (HINT: you can install sumo or set the path for sumo library by reading README.md)".format(e))
+        "{}. (HINT: you can install sumo or set the path for sumo library by reading README.md)".format(
+            e
+        )
+    )
 
 import numpy as np
 
@@ -30,21 +33,31 @@ ACCEL = [1.0, 0.2, -1.0, -0.2]
 
 
 class SumoLightEnv(BaseEnv):
-
-    def __init__(self, isgraph=True, area=0, carnum=100, mode='gui', step_length=0.01,
-                 simulation_end=100, seed=None, label='default'):
-        super().__init__(isgraph, area, carnum, mode,
-                         step_length, simulation_end, seed, label)
+    def __init__(
+        self,
+        isgraph=True,
+        area=0,
+        carnum=100,
+        mode="gui",
+        step_length=0.01,
+        simulation_end=100,
+        seed=None,
+        label="default",
+    ):
+        super().__init__(
+            isgraph, area, carnum, mode, step_length, simulation_end, seed, label
+        )
         # 6action and accel, brake
         self.action_space = spaces.Discrete(10)
         self.observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, dtype=np.float32, shape=(12, ))
+            low=-np.inf, high=np.inf, dtype=np.float32, shape=(12,)
+        )
 
     def step(self, action):
         # determine next step action
         vehID = list(self._vehID_list)[0]
         is_take = self._take_action(vehID, action)
-        if self._mode == 'gui':
+        if self._mode == "gui":
             self.screenshot_and_simulation_step()
         else:
             self.traci_connect.simulationStep()
@@ -71,7 +84,7 @@ class SumoLightEnv(BaseEnv):
         vehID = list(self._vehID_list)[0]
         self._reposition_car()
         self._removed_vehID_list.clear()
-        if self._mode == 'gui':
+        if self._mode == "gui":
             viewID = self.traci_connect.gui.DEFAULT_VIEW
             self.traci_connect.gui.trackVehicle(viewID, vehID)
             # zoom = self.traci_connect.gui.getZoom()
@@ -83,7 +96,7 @@ class SumoLightEnv(BaseEnv):
         pos = list(self.traci_connect.vehicle.getPosition(vehID))
         if pos[0] == tc.INVALID_DOUBLE_VALUE or pos[1] == tc.INVALID_DOUBLE_VALUE:
             pos[0], pos[1] = -np.inf, -np.inf
-        goal_pos = self._goal[vehID]['pos']
+        goal_pos = self._goal[vehID]["pos"]
         relative_goal_pos = list(goal_pos - np.array(pos))
         veh_len = self.traci_connect.vehicle.getLength(vehID)
         angle = self.traci_connect.vehicle.getAngle(vehID)
@@ -96,7 +109,7 @@ class SumoLightEnv(BaseEnv):
                 direction = DIRECTION[i]
                 next_edgeID = self._graph.getNextInfoTo(cur_edgeID, direction)
                 turn_direction[i] = 0.0 if next_edgeID is None else 1.0
-        goal_vector = list(self._goal[vehID]['direct'])
+        goal_vector = list(self._goal[vehID]["direct"])
         obs = [relative_goal_pos, veh_vector, turn_direction, goal_vector]
         obs_flat_list = flatten_list(obs)
         observation = np.array(obs_flat_list, dtype=np.float32)
@@ -119,10 +132,8 @@ class SumoLightEnv(BaseEnv):
                 self._reset_goal_element(vehID, goal_edgeID)
         else:
             accel_rate = ACCEL[action - DIRECT_FLAG - 1]
-            accel = self.traci_connect.vehicle.getAccel(
-                vehID) * abs(accel_rate)
-            decel = self.traci_connect.vehicle.getDecel(
-                vehID) * abs(accel_rate) * -1.0
+            accel = self.traci_connect.vehicle.getAccel(vehID) * abs(accel_rate)
+            decel = self.traci_connect.vehicle.getDecel(vehID) * abs(accel_rate) * -1.0
             future_accel = accel if accel_rate >= 0 else decel
             future_accel *= self._step_length
             future_speed = cur_speed + future_accel

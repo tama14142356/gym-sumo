@@ -3,14 +3,13 @@ from IPython import embed  # for debug
 
 
 class SumoUtil:
-
     def __init__(self, graph, step_length, direction_list, traci_connect):
         self._graph = graph
         self._step_length = step_length
         self._direction_list = direction_list
         self.traci_connect = traci_connect
 
-    def get_target(self, vehID='', routeID=''):
+    def get_target(self, vehID="", routeID=""):
         if len(routeID) > 0:
             route = self.traci_connect.route.getEdges(routeID)
         else:
@@ -37,8 +36,7 @@ class SumoUtil:
             return False
         to_edgeID = route[route_index]
         cur_edgeID = route[route_index - 1]
-        direct = self._graph.getNextInfoDirect(
-            curEdgeID=cur_edgeID, toEdgeID=to_edgeID)
+        direct = self._graph.getNextInfoDirect(curEdgeID=cur_edgeID, toEdgeID=to_edgeID)
         return direct == direction
 
     def _is_junction(self, vehID):
@@ -84,10 +82,10 @@ class SumoUtil:
         if self._is_junction(vehID):
             route = self.traci_connect.vehicle.getRoute(vehID)
             route_index = self.traci_connect.vehicle.getRouteIndex(vehID)
-            route_index += (1 if self._is_start(vehID) else 0)
+            route_index += 1 if self._is_start(vehID) else 0
             if route_index >= len(route):
                 return False, cur_laneID
-            cur_laneID = route[route_index] + '_0'
+            cur_laneID = route[route_index] + "_0"
             road_length += self.traci_connect.lane.getLength(cur_laneID)
         cur_speed = self.traci_connect.vehicle.getSpeed(vehID)
         future_lane_pos = cur_lane_pos + cur_speed * self._step_length
@@ -132,8 +130,7 @@ class SumoUtil:
             return True
         # move indirectly
         target_edgeID = self.get_target(vehID)
-        new_route = self.traci_connect.simulation.findRoute(
-            next_edgeID, target_edgeID)
+        new_route = self.traci_connect.simulation.findRoute(next_edgeID, target_edgeID)
         if len(new_route.edges) == 0:
             print(vehID, "empty")
             self.traci_connect.vehicle.changeTarget(vehID, next_edgeID)
@@ -144,7 +141,8 @@ class SumoUtil:
                 cur_edgeID = self.traci_connect.vehicle.getRoadID(vehID)
                 new_edge_list = [cur_edgeID]
                 new_edge_list[
-                    len(new_edge_list):len(new_route.edges)] = new_route.edges
+                    len(new_edge_list) : len(new_route.edges)
+                ] = new_route.edges
             self.traci_connect.vehicle.setRoute(vehID, new_edge_list)
         return True
 
@@ -153,12 +151,11 @@ class SumoUtil:
         length = 0
         num = len(route)
         for i, edgeID in enumerate(route):
-            laneID = edgeID + '_0'
+            laneID = edgeID + "_0"
             length += self.traci_connect.lane.getLength(laneID)
             if i < num - 1:
                 next_edgeID = route[i + 1]
-                via_laneID = self._graph.getNextInfoVia(
-                    edgeID, toEdgeID=next_edgeID)
+                via_laneID = self._graph.getNextInfoVia(edgeID, toEdgeID=next_edgeID)
                 length += self.traci_connect.lane.getLength(via_laneID)
         return length
 
@@ -167,7 +164,7 @@ class SumoUtil:
 
         def distance(targetpos):
             x, y = targetpos
-            return np.sqrt((posx - x)**2 + (posy - y)**2)
+            return np.sqrt((posx - x) ** 2 + (posy - y) ** 2)
 
         dis = distance(target)
         relative_pos = [x - y for (x, y) in zip(target, pos)]

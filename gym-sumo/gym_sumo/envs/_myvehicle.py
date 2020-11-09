@@ -12,7 +12,7 @@ STOP = 6
 # standard length for adding car
 SPOS = 10.5
 
-DIRECTION = ['s', 'T', 'l', 'L', 'r', 'R']
+DIRECTION = ["s", "T", "l", "L", "r", "R"]
 
 VEH_SIGNALS = {
     0: "VEH_SIGNAL_BLINKER_RIGHT",
@@ -38,29 +38,29 @@ class CurVehicle:
         self.__curVehInfo = []
         for vehID in vehIDList:
             tmp = {}
-            tmp['ID'] = vehID
-            tmp['exist'] = False
-            tmp['speed'] = -1.0
-            tmp['lanePos'] = -1.0
-            tmp['laneID'] = ''
-            tmp['edgeID'] = ''
-            tmp['pos'] = (-1.0, -1.0)
+            tmp["ID"] = vehID
+            tmp["exist"] = False
+            tmp["speed"] = -1.0
+            tmp["lanePos"] = -1.0
+            tmp["laneID"] = ""
+            tmp["edgeID"] = ""
+            tmp["pos"] = (-1.0, -1.0)
             vehList = traci.vehicle.getIDList()
             if vehID in vehList:
-                tmp['exist'] = True
-                tmp['speed'] = traci.vehicle.getSpeed(vehID)
-                tmp['lanePos'] = traci.vehicle.getLanePosition(vehID)
-                tmp['laneID'] = traci.vehicle.getLaneID(vehID)
-                tmp['edgeID'] = traci.vehicle.getRoadID(vehID)
-                tmp['pos'] = traci.vehicle.getPosition(vehID)
-            tmp['routeIndex'] = 0
-            tmp['accel'] = 0.0
-            tmp['routeLen'] = 0
-            tmp['routeID'] = vehIDList[vehID]
+                tmp["exist"] = True
+                tmp["speed"] = traci.vehicle.getSpeed(vehID)
+                tmp["lanePos"] = traci.vehicle.getLanePosition(vehID)
+                tmp["laneID"] = traci.vehicle.getLaneID(vehID)
+                tmp["edgeID"] = traci.vehicle.getRoadID(vehID)
+                tmp["pos"] = traci.vehicle.getPosition(vehID)
+            tmp["routeIndex"] = 0
+            tmp["accel"] = 0.0
+            tmp["routeLen"] = 0
+            tmp["routeID"] = vehIDList[vehID]
             route = traci.route.getEdges(vehIDList[vehID])
             index = len(route) - 1
-            tmp['start'] = route[0]
-            tmp['target'] = route[index]
+            tmp["start"] = route[0]
+            tmp["target"] = route[index]
             self.__curVehInfo.append(tmp)
         self.isValid = False
         self.__stepLength = step_length
@@ -81,58 +81,59 @@ class CurVehicle:
             if vehID is None:
                 return False
             vehIndex = self.getVehIndex(vehID)
-        return self.__curVehInfo[vehIndex]['exist']
+        return self.__curVehInfo[vehIndex]["exist"]
 
     def setExist(self, vehID=None, vehIndex=-1):
         if vehIndex < 0:
             if vehID is not None:
                 vehIndex = self.getVehIndex(vehID)
         if vehIndex > 0:
-            self.__curVehInfo[vehIndex]['exist'] = True
+            self.__curVehInfo[vehIndex]["exist"] = True
 
     def updateExist(self):
         tmpList = {}
         vehList = self.__curVehInfo
         for vehInfo in vehList:
-            vehID = vehInfo['ID']
-            isExist = vehInfo['exist']
+            vehID = vehInfo["ID"]
+            isExist = vehInfo["exist"]
             if not isExist:
-                start = vehInfo['start']
+                start = vehInfo["start"]
                 tmp = {}
                 if start in tmpList:
                     tmp = tmpList[start]
-                    tmp['ID'].append(vehID)
+                    tmp["ID"].append(vehID)
                 else:
-                    tmp['pos'] = -1.0
-                    tmp['ID'] = [vehID]
+                    tmp["pos"] = -1.0
+                    tmp["ID"] = [vehID]
                     tmpList[start] = tmp
 
         for vehInfo in vehList:
-            vehID = vehInfo['ID']
-            isExist = vehInfo['exist']
+            vehID = vehInfo["ID"]
+            isExist = vehInfo["exist"]
             if isExist:
-                curEdge = vehInfo['edgeID']
+                curEdge = vehInfo["edgeID"]
                 if curEdge in tmpList:
-                    curLanePos = vehInfo['lanePos']
+                    curLanePos = vehInfo["lanePos"]
                     tmp = tmpList[curEdge]
-                    pos = tmp['pos']
+                    pos = tmp["pos"]
                     if pos > 0:
                         curLanePos = min(pos, curLanePos)
-                    tmp['pos'] = curLanePos
+                    tmp["pos"] = curLanePos
                     tmpList[curEdge] = tmp
 
         tmpListCopy = tmpList.copy()
 
         for edgeID in tmpListCopy:
             edgeInfo = tmpList[edgeID]
-            pos = edgeInfo['pos']
+            pos = edgeInfo["pos"]
             if pos >= SPOS:
-                vehID = edgeInfo['ID'].pop(0)
+                vehID = edgeInfo["ID"].pop(0)
                 vehIndex = self.getVehIndex(vehID)
-                routeID = self.__curVehInfo[vehIndex]['routeID']
-                laneID = edgeID + '_0'
-                length = min(traci.vehicle.getLength(vehID),
-                             traci.lane.getLength(laneID))
+                routeID = self.__curVehInfo[vehIndex]["routeID"]
+                laneID = edgeID + "_0"
+                length = min(
+                    traci.vehicle.getLength(vehID), traci.lane.getLength(laneID)
+                )
                 # register car
                 traci.vehicle.add(vehID, routeID)
                 # set speed mode
@@ -150,14 +151,14 @@ class CurVehicle:
     def getVehIndex(self, vehID):
         index = -1
         for i, vehInfo in enumerate(self.__curVehInfo):
-            if vehID == vehInfo['ID']:
+            if vehID == vehInfo["ID"]:
                 index = i
         if index < 0:
             raise AttributeError("not exist the vehicle id: {}".format(vehID))
         return index
 
     def getVehID(self, vehIndex):
-        return self.__curVehInfo[vehIndex]['ID']
+        return self.__curVehInfo[vehIndex]["ID"]
 
     def getRemoveList(self):
         return self.__removeVehIDList
@@ -169,99 +170,99 @@ class CurVehicle:
     def getTarget(self, vehID, vehIndex=-1):
         if vehIndex < 0:
             vehIndex = self.getVehIndex(vehID)
-        return self.__curVehInfo[vehIndex]['target']
+        return self.__curVehInfo[vehIndex]["target"]
 
     def getStart(self, vehID, vehIndex=-1):
         if vehIndex < 0:
             vehIndex = self.getVehIndex(vehID)
-        return self.__curVehIndo[vehIndex]['start']
+        return self.__curVehIndo[vehIndex]["start"]
 
     def setCurAccel(self, vehID, accel, vehIndex=-1):
         if vehIndex < 0:
             vehIndex = self.getVehIndex(vehID)
-        self.__curVehInfo[vehIndex]['accel'] = accel
+        self.__curVehInfo[vehIndex]["accel"] = accel
 
     def getCurAccel(self, vehID, vehIndex=-1):
         if vehIndex < 0:
             vehIndex = self.getVehIndex(vehID)
-        return self.__curVehInfo[vehIndex]['accel']
+        return self.__curVehInfo[vehIndex]["accel"]
 
     def setCurSpeed(self, vehID, speed, vehIndex=-1):
         if vehIndex < 0:
             vehIndex = self.getVehIndex(vehID)
-        self.__curVehInfo[vehIndex]['speed'] = speed
+        self.__curVehInfo[vehIndex]["speed"] = speed
 
     def getCurSpeed(self, vehID, vehIndex=-1):
         if vehIndex < 0:
             vehIndex = self.getVehIndex(vehID)
-        return self.__curVehInfo[vehIndex]['speed']
+        return self.__curVehInfo[vehIndex]["speed"]
 
     def setCurRouteIndex(self, vehID, routeIndex, vehIndex=-1):
         if vehIndex < 0:
             vehIndex = self.getVehIndex(vehID)
-        self.__curVehInfo[vehIndex]['routeIndex'] = routeIndex
+        self.__curVehInfo[vehIndex]["routeIndex"] = routeIndex
 
     def getCurRouteIndex(self, vehID, vehIndex=-1):
         if vehIndex < 0:
             vehIndex = self.getVehIndex(vehID)
-        return self.__curVehInfo[vehIndex]['routeIndex']
+        return self.__curVehInfo[vehIndex]["routeIndex"]
 
     def setCurPos(self, vehID, pos, vehIndex=-1):
         if vehIndex < 0:
             vehIndex = self.getVehIndex(vehID)
-        self.__curVehInfo[vehIndex]['pos'] = pos
+        self.__curVehInfo[vehIndex]["pos"] = pos
 
     def getCurPos(self, vehID, vehIndex=-1):
         if vehIndex < 0:
             vehIndex = self.getVehIndex(vehID)
-        pos = self.__curVehInfo[vehIndex]['pos']
+        pos = self.__curVehInfo[vehIndex]["pos"]
         return pos[0], pos[1]
 
     def setCurLane(self, vehID, laneID, lanePos, vehIndex=-1):
         if vehIndex < 0:
             vehIndex = self.getVehIndex(vehID)
-        self.__curVehInfo[vehIndex]['lanePos'] = lanePos
-        self.__curVehInfo[vehIndex]['laneID'] = laneID
-        edgeID = ''
+        self.__curVehInfo[vehIndex]["lanePos"] = lanePos
+        self.__curVehInfo[vehIndex]["laneID"] = laneID
+        edgeID = ""
         if laneID is not None and len(laneID) > 0:
             edgeID = traci.lane.getEdgeID(laneID)
-        self.__curVehInfo[vehIndex]['edgeID'] = edgeID
+        self.__curVehInfo[vehIndex]["edgeID"] = edgeID
 
     def getCurEdge(self, vehID, vehIndex=-1):
         if vehIndex < 0:
             vehIndex = self.getVehIndex(vehID)
-        return self.__curVehInfo[vehIndex]['edgeID']
+        return self.__curVehInfo[vehIndex]["edgeID"]
 
     def getCurLaneID(self, vehID, vehIndex=-1):
-        lane = (self.getCurLane(vehID, vehIndex=vehIndex))
+        lane = self.getCurLane(vehID, vehIndex=vehIndex)
         return lane[1]
 
     def getCurLanePos(self, vehID, vehIndex=-1):
-        lane = (self.getCurLane(vehID, vehIndex=vehIndex))
+        lane = self.getCurLane(vehID, vehIndex=vehIndex)
         return lane[0]
 
     def getCurLane(self, vehID, vehIndex=-1):
         if vehIndex < 0:
             vehIndex = self.getVehIndex(vehID)
-        curLanePos = self.__curVehInfo[vehIndex]['lanePos']
-        curLaneID = self.__curVehInfo[vehIndex]['laneID']
+        curLanePos = self.__curVehInfo[vehIndex]["lanePos"]
+        curLaneID = self.__curVehInfo[vehIndex]["laneID"]
         return curLanePos, curLaneID
 
     def setRouteLength(self, vehID, length, vehIndex=-1):
         if vehIndex < 0:
             vehIndex = self.getVehIndex(vehID)
-        self.__curVehInfo[vehIndex]['routeLen'] = length
+        self.__curVehInfo[vehIndex]["routeLen"] = length
 
     def getRouteLength(self, vehID, vehIndex=-1):
         if vehIndex < 0:
             vehIndex = self.getVehIndex(vehID)
-        return self.__curVehInfo[vehIndex]['routeLen']
+        return self.__curVehInfo[vehIndex]["routeLen"]
 
     def calcCurInfo(self):
         if not self.isValid:
             self.isValid = True
             for index, vehInfo in enumerate(self.__curVehInfo):
-                vehID = vehInfo['ID']
+                vehID = vehInfo["ID"]
                 self.calcCurSpeed(vehID, vehIndex=index)
                 self.calcCurLanePos(vehID, vehIndex=index)
                 self.calcCurPosition(vehID, vehIndex=index)
@@ -275,14 +276,13 @@ class CurVehicle:
             return self.getRouteLength(vehID, vehIndex=vehIndex)
         route = traci.vehicle.getRoute(vehID)
         startEdgeID = route[0]
-        laneID = startEdgeID + '_{}'.format(0)
+        laneID = startEdgeID + "_{}".format(0)
         length = traci.lane.getLength(laneID)
         edge_num = len(route)
         for i in range(1, edge_num):
-            viaLaneID = self.__graph.getNextInfoVia(route[i - 1],
-                                                    None, None, route[i])
+            viaLaneID = self.__graph.getNextInfoVia(route[i - 1], None, None, route[i])
             length += traci.lane.getLength(viaLaneID)
-            laneID = route[i] + '_{}'.format(0)
+            laneID = route[i] + "_{}".format(0)
             length += traci.lane.getLength(laneID)
         self.setRouteLength(vehID, length, vehIndex=vehIndex)
         return length
@@ -291,13 +291,12 @@ class CurVehicle:
         if vehIndex < 0:
             vehIndex = self.getVehIndex(vehID)
         if self.isValid:
-            return (self.getCurPos(vehID, vehIndex=vehIndex))
+            return self.getCurPos(vehID, vehIndex=vehIndex)
         curLanePos, curLaneID = self.getCurLane(vehID)
-        index = curLaneID.rfind('_') + 1
+        index = curLaneID.rfind("_") + 1
         laneIndex = int(curLaneID[index:])
         curEdgeID = self.getCurEdge(vehID)
-        pos = traci.simulation.convert2D(curEdgeID, curLanePos,
-                                         laneIndex)
+        pos = traci.simulation.convert2D(curEdgeID, curLanePos, laneIndex)
         self.setCurPos(vehID, pos, vehIndex=vehIndex)
         return pos
 
@@ -308,7 +307,7 @@ class CurVehicle:
             return self.getCurSpeed(vehID, vehIndex=vehIndex)
         preSpeed = traci.vehicle.getSpeed(vehID)
         curSpeed = preSpeed + self.getCurAccel(vehID, vehIndex=vehIndex)
-        self.__curVehInfo[vehIndex]['speed'] = curSpeed
+        self.__curVehInfo[vehIndex]["speed"] = curSpeed
         return curSpeed
 
     # In current step, return lane position of vehID
@@ -332,8 +331,7 @@ class CurVehicle:
         curLanePosition = preLanePos + (curSpeed * self.__stepLength)
 
         if curLanePosition <= roadLength:
-            self.setCurLane(vehID, preLaneID, curLanePosition,
-                            vehIndex=vehIndex)
+            self.setCurLane(vehID, preLaneID, curLanePosition, vehIndex=vehIndex)
             self.setCurRouteIndex(vehID, preRouteIndex, vehIndex=vehIndex)
             return curLanePosition, preLaneID
 
@@ -347,10 +345,9 @@ class CurVehicle:
         for i in range(preRouteIndex, edge_num):
             preEdgeID = route[i - 1]
             edgeID = route[i]
-            laneID = edgeID + '_{}'.format(0)
+            laneID = edgeID + "_{}".format(0)
             roadLength = traci.lane.getLength(laneID)
-            viaLaneID = self.__graph.getNextInfoVia(preEdgeID, None,
-                                                    None, edgeID)
+            viaLaneID = self.__graph.getNextInfoVia(preEdgeID, None, None, edgeID)
             nodeLength = traci.lane.getLength(viaLaneID)
             if tempPos < nodeLength:
                 curLaneID = viaLaneID
@@ -382,8 +379,7 @@ class CurVehicle:
         # calculate future speed
         curSpeed = self.getCurSpeed(vehID, vehIndex=vehIndex)
         futureSpeed = curSpeed + futureAccel
-        futureAccel = (-curSpeed
-                       * self.__stepLength if futureSpeed < 0 else futureAccel)
+        futureAccel = -curSpeed * self.__stepLength if futureSpeed < 0 else futureAccel
         futureSpeed = 0.0 if futureSpeed < 0 else futureSpeed
 
         # set future accel
@@ -405,7 +401,7 @@ class CurVehicle:
             nodeLength = traci.lane.getLength(curLaneID)
             if totalLen > nodeLength:
                 return False
-            tmpLaneID = route[0] + '_0'
+            tmpLaneID = route[0] + "_0"
             roadLength += traci.lane.getLength(tmpLaneID)
 
         futureLanePos = curLanePos + (futureSpeed * self.__stepLength)
