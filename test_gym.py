@@ -13,9 +13,9 @@ import gym_sumo
 # }
 carnum = 1
 kwargs = {
-    "step_length": 1,
+    # "step_length": 1,
     # "mode": "cui",
-    "carnum": carnum,
+    # "carnum": carnum,
 }
 kwargs2 = {
     "step_length": 1,
