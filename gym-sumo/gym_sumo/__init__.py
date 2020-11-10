@@ -13,6 +13,12 @@ register(
     reward_threshold=25.0,
 )
 register(
+    id="sumo-light-v1",
+    entry_point="gym_sumo.envs:SumoLightEnv",
+    max_episode_steps=500,
+    reward_threshold=475.0,
+)
+register(
     id="sumo-simple-v0",
     entry_point="gym_sumo.envs:SumoSimpleEnv",
     max_episode_steps=200,
