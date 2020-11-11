@@ -1,4 +1,4 @@
-from IPython import embed
+# from IPython import embed  # for debug
 from gym import spaces, error
 
 try:
@@ -53,15 +53,18 @@ class SumoLightEnv(BaseEnv):
             low=-np.inf, high=np.inf, dtype=np.float32, shape=(12,)
         )
 
-    def step(self, action):
-        # determine next step action
-        vehID = list(self._vehID_list)[0]
+    def step(self, action, vehID=""):
+        pre_driving_len = self.traci_connect.vehicle.getDistance(vehID)
+        # determine next step action, affect environment
+        if len(vehID) <= 0:
+            vehID = list(self._vehID_list)[0]
         is_take = self._take_action(vehID, action)
         if self._mode == "gui":
             self.screenshot_and_simulation_step()
         else:
             self.traci_connect.simulationStep()
         observation = self._observation(vehID)
+        cur_driving_len = self.traci_connect.vehicle.getDistance(vehID)
 
         # calculate reward
         reward = 0.0
@@ -76,6 +79,12 @@ class SumoLightEnv(BaseEnv):
                 self.traci_connect.vehicle.remove(vehID, tc.REMOVE_TELEPORT)
                 self._removed_vehID_list.append(vehID)
                 reward = -1.0
+            else:
+                # survive bonus
+                reward += self._get_cur_step() / self._simulation_end
+                # progress bonus
+                progress = cur_driving_len - pre_driving_len
+                reward += 0.1 if progress > 0 else 0.0
 
         isdone = self._is_done(vehID)
         return observation, reward, isdone, {}

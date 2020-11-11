@@ -130,6 +130,11 @@ class SumoBaseEnv(gym.Env):
     def _reset_simulate_time(self, cur_time):
         self._cur_simulation_start = cur_time
 
+    def _get_cur_step(self):
+        cur_sumo_time = self.traci_connect.simulation.getTime()
+        cur_step = cur_sumo_time - self._cur_simulation_start
+        return cur_step
+
     def _reset_goal_element(self, vehID, goal_edgeID):
         self._vehID_list[vehID]["goal"] = goal_edgeID
         goal_laenID = goal_edgeID + "_0"
