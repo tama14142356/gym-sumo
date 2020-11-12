@@ -167,6 +167,10 @@ class SumoBaseEnv(gym.Env):
             "true",
             "--tls.all-off",
             "true",
+            "--start",
+            "true",
+            "--quit-on-end",
+            "true",
         ]
         label = self.label
         traci_label = SumoBaseEnv.sumo_label
