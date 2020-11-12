@@ -74,14 +74,14 @@ class SumoLightEnv(BaseEnv):
         if vehID not in removed_list:
             if vehID in acheived_list:
                 self._removed_vehID_list.append(vehID)
-                reward = 1.0
+                reward = 100
             elif vehID in collision_list or not is_take:
                 self.traci_connect.vehicle.remove(vehID, tc.REMOVE_TELEPORT)
                 self._removed_vehID_list.append(vehID)
                 reward = -1.0
             else:
                 # survive bonus
-                reward += self._get_cur_step() / self._simulation_end
+                reward += 1
                 # progress bonus
                 progress = cur_driving_len - pre_driving_len
                 reward += 0.1 if progress > 0 else 0.0
