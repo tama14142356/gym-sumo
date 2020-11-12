@@ -54,10 +54,10 @@ class SumoLightEnv(BaseEnv):
         )
 
     def step(self, action, vehID=""):
-        pre_driving_len = self.traci_connect.vehicle.getDistance(vehID)
         # determine next step action, affect environment
         if len(vehID) <= 0:
             vehID = list(self._vehID_list)[0]
+        pre_driving_len = self.traci_connect.vehicle.getDistance(vehID)
         is_take = self._take_action(vehID, action)
         if self._mode == "gui":
             self.screenshot_and_simulation_step()
