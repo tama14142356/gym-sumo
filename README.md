@@ -52,7 +52,7 @@ Linux (Ubuntu):
 確認できていないので、以下のURLを見て、インストールしてみてください。:  
 [Installing](https://sumo.dlr.de/docs/Installing.html)
 
-## install gym environment
+## gym環境のインストール
 1. 前のセクションのインストール方法を見て、SUMOをインストールする。
 1. gym環境のソースコードを取得する  
     もし、gitにssh登録しているなら以下のコマンドを実行
