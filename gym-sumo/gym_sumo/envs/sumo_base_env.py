@@ -171,6 +171,8 @@ class SumoBaseEnv(gym.Env):
             "true",
             "--quit-on-end",
             "true",
+            "--window-size",
+            "1300, 700",
         ]
         label = self.label
         traci_label = SumoBaseEnv.sumo_label
