@@ -1,21 +1,13 @@
-# from IPython import embed  # for debug
-from gym import spaces, error
-
-try:
-    from traci import constants as tc
-except ImportError as e:
-    raise error.DependencyNotInstalled(
-        "{}. (HINT: you can install sumo or set the path for sumo library by reading README.md)".format(
-            e
-        )
-    )
-
-import numpy as np
-
 from .sumo_base_env import SumoBaseEnv as BaseEnv
 from .sumo_base_env import DIRECTION
 from .sumo_base_env import STRAIGHT, UTURN, LEFT, PAR_LEFT, RIGHT, PAR_RIGHT
 from ._util import vector_decomposition, flatten_list
+
+# from IPython import embed  # for debug
+from gym import spaces
+import numpy as np
+
+from traci import constants as tc
 
 # action
 NO_OP = STRAIGHT
@@ -74,14 +66,14 @@ class SumoLightEnv(BaseEnv):
         if vehID not in removed_list:
             if vehID in acheived_list:
                 self._removed_vehID_list.append(vehID)
-                reward = 100
+                reward += 100.0
             elif vehID in collision_list or not is_take:
                 self.traci_connect.vehicle.remove(vehID, tc.REMOVE_TELEPORT)
                 self._removed_vehID_list.append(vehID)
-                reward = -1.0
+                reward -= 1.0
             else:
                 # survive bonus
-                reward += 1
+                reward += 1.0
                 # progress bonus
                 progress = cur_driving_len - pre_driving_len
                 reward += 0.1 if progress > 0 else 0.0

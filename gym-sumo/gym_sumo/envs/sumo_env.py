@@ -1,22 +1,14 @@
-from gym import spaces, error
-
-try:
-    from traci import constants as tc
-except ImportError as e:
-    raise error.DependencyNotInstalled(
-        "{}. (HINT: you can install sumo or set the path for sumo library by reading README.md)".format(
-            e
-        )
-    )
-
-import numpy as np
-
-import torch
-from torch_geometric.data import Data
 from ._graph import Graph
 from ._util import flatten_list
 from .sumo_base_env import SumoBaseEnv as BaseEnv
-from gym_sumo.envs.sumo_base_env import STRAIGHT, DIRECTION
+from .sumo_base_env import STRAIGHT, DIRECTION
+
+from gym import spaces
+import numpy as np
+import torch
+from torch_geometric.data import Data
+
+from traci import constants as tc
 
 # action
 STOP = 6

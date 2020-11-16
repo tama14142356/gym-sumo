@@ -4,24 +4,24 @@ from gym.utils import seeding
 
 import os
 import sys
-
-try:
-    import traci
-except ImportError as e:
-    raise error.DependencyNotInstalled(
-        "{}. (HINT: you can install sumo or set the path for sumo library by reading README.md)".format(
-            e
-        )
-    )
-
 import numpy as np
 from PIL import Image
 import tempfile
-from IPython import embed  # for debug
+
+# from IPython import embed  # for debug
 
 from ._graph import Graph
 from ._util import random_tuple, get_base_vector
 from .sumo_util import SumoUtil
+
+MESSAGE_HINT = (
+    "(HINT: you can install sumo or set the path for sumo library by reading README.md)"
+)
+try:
+    import traci
+except ImportError as e:
+    raise error.DependencyNotInstalled("{}.".format(e) + MESSAGE_HINT)
+
 
 AREA = ["nishiwaseda", "waseda_university"]
 # standard length for adding car
@@ -255,20 +255,6 @@ class SumoBaseEnv(gym.Env):
             self.traci_connect.route.add(routeID, route.edges)
             is_find = True
         return is_find, edges, [from_edgeID, to_edgeID]
-
-    def _insert_car(self, vehID, routeID, startEdgeID=None):
-        if startEdgeID is None:
-            startEdgeID = self.traci_connect.route.getEdges(routeID)[0]
-        # set speed mode
-        self.traci_connect.vehicle.setSpeedMode(vehID, 0)
-        laneID = startEdgeID + "_0"
-        length = min(
-            self.traci_connect.vehicle.getLength(vehID),
-            self.traci_connect.lane.getLength(laneID),
-        )
-        # insert car instantly
-        self.traci_connect.vehicle.moveTo(vehID, laneID, length)
-        self.traci_connect.vehicle.setSpeed(vehID, 0.0)
 
     def screenshot_and_simulation_step(self):
         with tempfile.TemporaryDirectory() as tmpdir:

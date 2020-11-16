@@ -32,10 +32,7 @@ class Graph:
     def __init__(self, filepath, isNode_attr=True, isEdge_attr=True):
         self.__filepath = filepath
         self.__nodeIDList = []  # list of node id
-        # dictionary: {'edgeID':(fromnodeindex, tonodeindex)}
         self.__edgeIDList = []  # list of edgeID including normal, internal
-        # self.nodeIDdict = {}  # dictionary: {'nodeID': nodeindex}
-        # self.normalEdgeIDdict = {}  # dictionary: {'edgeID': edgeindex}
         self.__edges = None
         self.__num = defaultdict(int)
         self.__isEdge_attr = isEdge_attr
@@ -617,14 +614,19 @@ class Graph:
         print(data["edge_attr"])
 
 
-# sumoBinary = os.environ['SUMO_HOME']
-# sumoBinary += "/mytest/shinjuku/testmap/osm.net.xml"
-# g = Graph(sumoBinary, edge_attr=True)
-# print(g.edge_attr.numpy())
-# print(g.graph.pos.numpy())
-# print(g.getEdges())
+if __name__ == "__main__":
+    import os
 
-# # g.check_graph(g.graph)
-# # print(g.num)
-# # print(g.nodedict)
-# g.showgraph(g.graph, title='sumo', ispos=False, isLabel=False)
+    sumoBinary = os.path.join(
+        os.path.dirname(__file__), "sumo_configs/nishiwaseda/osm.net.xml"
+    )
+    g = Graph(sumoBinary)
+    graph = g.getGraph()
+    print(graph.edge_attr.numpy())
+    print(graph.pos.numpy())
+    print(g.getEdges())
+
+    g.check_graph(graph)
+    print(g.getNum("edge_normal"))
+    print(g.getConnection())
+    g.showgraph(graph, title="sumo", ispos=False, isLabel=False)

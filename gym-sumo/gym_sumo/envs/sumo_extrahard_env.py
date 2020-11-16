@@ -1,29 +1,24 @@
 import gym
 
-# from gym import error, spaces, utils
 from gym import spaces, error
-
-# from gym.utils import seeding
 
 import os
 import sys
-
-try:
-    import traci
-    from traci import constants as tc
-    from traci.exceptions import TraCIException
-except ImportError as e:
-    raise error.DependencyNotInstalled(
-        "{}. (HINT: you can install sumo or set the path for sumo library by reading README.md)".format(
-            e
-        )
-    )
-
 import numpy as np
 
 from ._graph import Graph
 from ._myvehicle import CurVehicle, DIRECTION, STOP, STRAIGHT
 from ._util import random_tuple
+
+MESSAGE_HINT = (
+    "(HINT: you can install sumo or set the path for sumo library by reading README.md)"
+)
+try:
+    import traci
+    from traci import constants as tc
+    from traci.exceptions import TraCIException
+except ImportError as e:
+    raise error.DependencyNotInstalled("{}.".format(e) + MESSAGE_HINT)
 
 
 class SumoExtraHardEnv(gym.Env):

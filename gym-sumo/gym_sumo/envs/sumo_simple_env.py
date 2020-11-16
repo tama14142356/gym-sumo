@@ -1,20 +1,13 @@
-from IPython import embed
-from gym import spaces, error
-
-try:
-    from traci import constants as tc
-except ImportError as e:
-    raise error.DependencyNotInstalled(
-        "{}. (HINT: you can install sumo or set the path for sumo library by reading README.md)".format(
-            e
-        )
-    )
-
-import numpy as np
-
 from .sumo_base_env import SumoBaseEnv as BaseEnv
 from ._util import vector_decomposition, get_degree, in_many_shape
 from ._util import get_rectangle_positions, in_rect, get_base_angle
+
+# from IPython import embed # for debug
+from gym import spaces
+import numpy as np
+
+from traci import constants as tc
+
 
 # visible range of the car (circle with that radius to that range) [m]
 VISIBLE_RANGE = 10
