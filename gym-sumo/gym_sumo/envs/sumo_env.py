@@ -22,7 +22,7 @@ class SumoEnv(BaseEnv):
         carnum=100,
         mode="gui",
         step_length=0.01,
-        simulation_end=100,
+        simulation_end=3600,
         seed=None,
         label="default",
     ):

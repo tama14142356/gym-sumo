@@ -69,7 +69,7 @@ class SumoBaseEnv(gym.Env):
         carnum=100,
         mode="gui",
         step_length=0.01,
-        simulation_end=100,
+        simulation_end=3600,
         seed=None,
         label="default",
     ):
@@ -120,7 +120,7 @@ class SumoBaseEnv(gym.Env):
     def _is_done(self, vehID):
         removed_list = self._removed_vehID_list
         v_list = self.traci_connect.vehicle.getIDList()
-        cur_time = self.traci_connect.simulation.getTime() - self._cur_simulation_start
+        cur_time = self._get_cur_step()
         return (
             vehID in removed_list
             or vehID not in v_list
