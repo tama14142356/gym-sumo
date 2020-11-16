@@ -76,7 +76,10 @@ class SumoLightEnv(BaseEnv):
                 reward += 1.0
                 # progress bonus
                 progress = cur_driving_len - pre_driving_len
-                reward += 0.1 if progress > 0 else 0.0
+                total_length = self._sumo_util._get_route_length(vehID)
+                if progress > 0:
+                    reward += 0.1
+                    reward += 0.0 if total_length <= 0 else progress / total_length
 
         isdone = self._is_done(vehID)
         return observation, reward, isdone, {}
