@@ -138,6 +138,11 @@ class SumoBaseEnv(gym.Env):
             cur_time = self.traci_connect.simulation.getTime()
         self._cur_simulation_start = cur_time
 
+    def get_speed(self, vehID=""):
+        if len(vehID) <= 0:
+            vehID = list(self._vehID_list)[0]
+        return self.traci_connect.vehicle.getSpeed(vehID)
+
     def get_cur_step(self):
         return self._get_cur_step()
 
