@@ -24,6 +24,8 @@ except ImportError as e:
 
 
 AREA = ["nishiwaseda", "waseda_university"]
+# max length for route length
+MAX_LENGTH = 1000
 # standard length for adding car
 SPOS = 10.5
 # standard speed (40km/h) for vehicle
@@ -265,8 +267,10 @@ class SumoBaseEnv(gym.Env):
             return is_find, edges, [from_edgeID, to_edgeID]
         route = self.traci_connect.simulation.findRoute(from_edgeID, to_edgeID)
         if len(route.edges) > 0:
-            self.traci_connect.route.add(routeID, route.edges)
-            is_find = True
+            total_length = self._sumo_util._get_route_length(route_edges=route.edges)
+            if total_length <= MAX_LENGTH:
+                self.traci_connect.route.add(routeID, route.edges)
+                is_find = True
         return is_find, edges, [from_edgeID, to_edgeID]
 
     def screenshot_and_simulation_step(self, vehID=""):

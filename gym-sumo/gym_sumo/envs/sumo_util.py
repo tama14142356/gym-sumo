@@ -1,4 +1,5 @@
 import numpy as np
+import copy
 
 # from IPython import embed  # for debug
 
@@ -147,8 +148,13 @@ class SumoUtil:
             self.traci_connect.vehicle.setRoute(vehID, new_edge_list)
         return True
 
-    def _get_route_length(self, vehID):
-        route = self.traci_connect.vehicle.getRoute(vehID)
+    def _get_route_length(self, vehID="", routeID="", route_edges=[]):
+        if len(route_edges) > 0:
+            route = copy.deepcopy(route_edges)
+        if len(routeID) > 0:
+            route = self.traci_connect.route.getEdges(routeID)
+        if len(vehID) > 0:
+            route = self.traci_connect.vehicle.getRoute(vehID)
         length = 0
         num = len(route)
         for i, edgeID in enumerate(route):
@@ -158,6 +164,7 @@ class SumoUtil:
                 next_edgeID = route[i + 1]
                 via_laneID = self._graph.getNextInfoVia(edgeID, toEdgeID=next_edgeID)
                 length += self.traci_connect.lane.getLength(via_laneID)
+        del route
         return length
 
     def _is_exist(self, pos, r, target):
