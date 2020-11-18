@@ -16,6 +16,7 @@ for i in range(1000):
     # env.render()
     action = env.action_space.sample()
     observation, reward, done, _ = env.step(action)
+    print(i, observation, reward, done, action)
     if done:
         observation = env.reset()
 
