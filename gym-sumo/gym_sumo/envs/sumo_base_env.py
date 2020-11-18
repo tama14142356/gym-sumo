@@ -78,7 +78,11 @@ class SumoBaseEnv(gym.Env):
         sumo_map = os.path.join(os.path.dirname(__file__), sumo_config)
         self._netpath = os.path.join(sumo_map, "osm.net.xml")
 
-        self.metadata = {"render.modes": ["human", "rgb_array"]}
+        # set 1 video frame / 1s
+        self.metadata = {
+            "render.modes": ["human", "rgb_array"],
+            "video.frames_per_second": 1,
+        }
         self.np_img = None
 
         self._sumocfg = os.path.join(sumo_map, "osm.sumocfg")
@@ -96,10 +100,10 @@ class SumoBaseEnv(gym.Env):
         self._is_graph = isgraph
         self._graph = Graph(self._netpath)
         self._init_simulator(mode, step_length=step_length)
-        self._add_car(carnum)
         self._sumo_util = SumoUtil(
             self._graph, self._step_length, DIRECTION, self.traci_connect
         )
+        self._add_car(carnum)
 
     def render(self, mode="human"):
         if self._mode == "gui":
@@ -127,8 +131,13 @@ class SumoBaseEnv(gym.Env):
             or cur_time >= self._simulation_end
         )
 
-    def _reset_simulate_time(self, cur_time):
+    def _reset_simulate_time(self, cur_time=-1):
+        if cur_time < 0:
+            cur_time = self.traci_connect.simulation.getTime()
         self._cur_simulation_start = cur_time
+
+    def get_cur_step(self):
+        return self._get_cur_step()
 
     def _get_cur_step(self):
         cur_sumo_time = self.traci_connect.simulation.getTime()
@@ -197,13 +206,16 @@ class SumoBaseEnv(gym.Env):
             self.traci_connect.vehicle.setSpeed(vehID, 0.0)
             self.traci_connect.simulationStep()
 
+        self.traci_connect.simulationStep()
         self._reset_simulate_time(self.traci_connect.simulation.getTime())
 
     def _reposition_car(self):
         self.traci_connect.simulationStep()
         v_list = self.traci_connect.vehicle.getIDList()
         for i, vehID in enumerate(self._vehID_list):
-            if vehID in self._removed_vehID_list and vehID not in v_list:
+            if vehID in v_list:
+                self.traci_connect.vehicle.setSpeed(vehID, 0.0)
+            elif vehID in self._removed_vehID_list:
                 routeID = self._vehID_list[vehID]["route"]
                 edgeID = self._vehID_list[vehID]["start"]
                 goal_edgeID = self._sumo_util.get_target(routeID=routeID)
@@ -220,6 +232,7 @@ class SumoBaseEnv(gym.Env):
                     self.traci_connect.vehicle.setSpeed(vehID, 0.0)
             self.traci_connect.simulationStep()
 
+        self.traci_connect.simulationStep()
         self._reset_simulate_time(self.traci_connect.simulation.getTime())
 
     def _generate_route(self, index):
@@ -256,9 +269,14 @@ class SumoBaseEnv(gym.Env):
             is_find = True
         return is_find, edges, [from_edgeID, to_edgeID]
 
-    def screenshot_and_simulation_step(self):
+    def screenshot_and_simulation_step(self, vehID=""):
         with tempfile.TemporaryDirectory() as tmpdir:
             viewID = self.traci_connect.gui.DEFAULT_VIEW
+            if len(vehID) <= 0:
+                vehID = list(self._vehID_list)[0]
+            # gui.trackVehicleの代わり
+            x, y = self.traci_connect.vehicle.getPosition(vehID)
+            self.traci_connect.gui.setOffset(viewID, x, y)
             img_path = tmpdir + "/screenshot.png"
             self.traci_connect.gui.screenshot(viewID, img_path)
             self.traci_connect.simulationStep()

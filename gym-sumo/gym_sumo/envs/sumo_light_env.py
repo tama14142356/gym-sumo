@@ -90,9 +90,11 @@ class SumoLightEnv(BaseEnv):
         self._removed_vehID_list.clear()
         if self._mode == "gui":
             viewID = self.traci_connect.gui.DEFAULT_VIEW
-            self.traci_connect.gui.trackVehicle(viewID, vehID)
+            # self.traci_connect.gui.trackVehicle(viewID, vehID)
             # zoom = self.traci_connect.gui.getZoom()
-            self.traci_connect.gui.setZoom(viewID, 5000)
+            self.traci_connect.gui.setZoom(viewID, 1000)
+            self.screenshot_and_simulation_step()
+            self._reset_simulate_time()
         observation = self._observation(vehID)
         return observation
 
