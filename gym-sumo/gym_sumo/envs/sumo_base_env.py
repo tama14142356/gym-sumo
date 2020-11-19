@@ -156,8 +156,11 @@ class SumoBaseEnv(gym.Env):
         goal_laenID = goal_edgeID + "_0"
         goal_element = {}
         lane_pos = self.traci_connect.lane.getShape(goal_laenID)
-        goal_element["pos"] = list(lane_pos[1])
-        goal_element["direct"] = get_base_vector(lane_pos[0], lane_pos[1])
+        shape_num = len(lane_pos)
+        end_pos = lane_pos[shape_num - 1]
+        start_or_mid_pos = lane_pos[shape_num - 2]
+        goal_element["pos"] = list(end_pos)
+        goal_element["direct"] = get_base_vector(start_or_mid_pos, end_pos)
         self._goal[vehID] = goal_element
 
     def _init_simulator(self, mode="gui", routing_alg="dijkstra", step_length=0.01):
