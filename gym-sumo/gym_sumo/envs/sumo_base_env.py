@@ -8,7 +8,7 @@ import numpy as np
 from PIL import Image
 import tempfile
 
-# from IPython import embed  # for debug
+from IPython import embed  # for debug
 
 from ._graph import Graph
 from ._util import random_tuple, get_base_vector
@@ -141,6 +141,8 @@ class SumoBaseEnv(gym.Env):
     def get_speed(self, vehID=""):
         if len(vehID) <= 0:
             vehID = list(self._vehID_list)[0]
+        if vehID in self._removed_vehID_list:
+            return -1.0
         return self.traci_connect.vehicle.getSpeed(vehID)
 
     def get_cur_step(self):
