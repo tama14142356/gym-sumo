@@ -78,7 +78,7 @@ class SumoLightEnv(BaseEnv):
                 reward -= 1.0
             else:
                 # survive bonus
-                reward += 1.0
+                reward += 0.1
                 # progress bonus
                 cur_driving_len = self.traci_connect.vehicle.getDistance(vehID)
                 progress = cur_driving_len - pre_driving_len
