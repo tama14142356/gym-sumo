@@ -55,13 +55,18 @@ class SumoLightEnv(BaseEnv):
             self.screenshot_and_simulation_step()
         else:
             self.traci_connect.simulationStep()
-        observation = self._observation(vehID)
-        cur_driving_len = self.traci_connect.vehicle.getDistance(vehID)
+
+        acheived_list = self.traci_connect.simulation.getArrivedIDList()
+
+        observation = (
+            self._done_observation(vehID)
+            if vehID in acheived_list
+            else self._observation(vehID)
+        )
 
         # calculate reward
         reward = 0.0
         collision_list = self.traci_connect.simulation.getCollidingVehiclesIDList()
-        acheived_list = self.traci_connect.simulation.getArrivedIDList()
         removed_list = self._removed_vehID_list
         if vehID not in removed_list:
             if vehID in acheived_list:
@@ -75,6 +80,7 @@ class SumoLightEnv(BaseEnv):
                 # survive bonus
                 reward += 1.0
                 # progress bonus
+                cur_driving_len = self.traci_connect.vehicle.getDistance(vehID)
                 progress = cur_driving_len - pre_driving_len
                 total_length = self._sumo_util._get_route_length(vehID)
                 if progress > 0:
@@ -96,6 +102,15 @@ class SumoLightEnv(BaseEnv):
             self.screenshot_and_simulation_step()
             self._reset_simulate_time()
         observation = self._observation(vehID)
+        return observation
+
+    def _done_observation(self, vehID):
+        goal_vector = list(self._goal[vehID]["direct"])
+        relative_goal_pos = list([0.0, 0.0])
+        turn_direction = [0.0] * (DIRECT_FLAG + 1)
+        obs = [relative_goal_pos, goal_vector, turn_direction, goal_vector]
+        obs = flatten_list(obs)
+        observation = np.array(obs, dtype=np.float32)
         return observation
 
     def _observation(self, vehID):

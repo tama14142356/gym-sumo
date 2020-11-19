@@ -178,7 +178,7 @@ class SumoBaseEnv(gym.Env):
             "--step-length",
             str(step_length),
             "--collision.action",
-            "remove",
+            "warn",
             "--collision.check-junctions",
             "true",
             "--tls.all-off",
