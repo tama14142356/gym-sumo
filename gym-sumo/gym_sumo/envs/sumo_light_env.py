@@ -3,7 +3,7 @@ from .sumo_base_env import DIRECTION
 from .sumo_base_env import STRAIGHT, UTURN, LEFT, PAR_LEFT, RIGHT, PAR_RIGHT
 from ._util import vector_decomposition, flatten_list
 
-# from IPython import embed  # for debug
+from IPython import embed  # for debug
 from gym import spaces
 import numpy as np
 
@@ -58,6 +58,32 @@ class SumoLightEnv(BaseEnv):
 
         acheived_list = self.traci_connect.simulation.getArrivedIDList()
 
+        info = {}
+        info["is_take"] = is_take
+        info["is_arrived"] = vehID in acheived_list
+        info["goal"] = self._vehID_list[vehID]["goal"]
+        info["cur_lane"] = (
+            "" if info["is_arrived"] else self.traci_connect.vehicle.getLaneID(vehID)
+        )
+        info["cur_lane_pos"] = (
+            -1.0
+            if info["is_arrived"]
+            else self.traci_connect.vehicle.getLanePosition(vehID)
+        )
+        info["lane_len"] = (
+            0.0
+            if len(info["cur_lane"]) <= 0
+            else self.traci_connect.lane.getLength(info["cur_lane"])
+        )
+        info["speed"] = (
+            -1.0 if info["is_arrived"] else self.traci_connect.vehicle.getSpeed(vehID)
+        )
+        info["pos"] = (
+            (-1.0, -1.0)
+            if info["is_arrived"]
+            else self.traci_connect.vehicle.getPosition(vehID)
+        )
+
         observation = (
             self._done_observation(vehID)
             if vehID in acheived_list
@@ -86,9 +112,14 @@ class SumoLightEnv(BaseEnv):
                 if progress > 0:
                     reward += 0.1
                     reward += 0.0 if total_length <= 0 else progress / total_length
+                info["driving_len"] = cur_driving_len
 
         isdone = self._is_done(vehID)
-        return observation, reward, isdone, {}
+        info["is_removed"] = vehID in removed_list
+        info["cur_step"] = self._get_cur_step()
+        info["cur_sm_step"] = self.traci_connect.simulation.getTime()
+        info["needs_reset"] = info["is_removed"]
+        return observation, reward, isdone, info
 
     def reset(self):
         vehID = list(self._vehID_list)[0]
