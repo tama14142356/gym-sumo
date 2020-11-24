@@ -79,11 +79,13 @@ class SumoUtil:
         distance = self.traci_connect.vehicle.getDistance(vehID)
         return distance <= 0.0
 
-    def _could_reach_junction(self, vehID):
+    def _could_reach_junction(self, vehID, speed=-1.0):
         """whether vehicle reach junction until next step
 
         Args:
             vehID (str): vehicle id
+            speed (float, optional): vehicle speed
+                                     Defaults to -1.0 means not use this speed
 
         Returns:
             bool, str: whether vehicle reach junction til next step,
@@ -101,16 +103,20 @@ class SumoUtil:
                 return False, cur_laneID
             cur_laneID = route[route_index] + "_0"
             road_length += self.traci_connect.lane.getLength(cur_laneID)
-        cur_speed = self.traci_connect.vehicle.getSpeed(vehID)
+        cur_speed = (
+            speed if speed >= 0.0 else self.traci_connect.vehicle.getSpeed(vehID)
+        )
         future_lane_pos = cur_lane_pos + cur_speed * self._step_length
         return future_lane_pos > road_length, cur_laneID
 
-    def _could_turn(self, vehID, direction):
+    def _could_turn(self, vehID, direction, speed=-1.0):
         """whether vehicle could turn to the direction
 
         Args:
             vehID (str): vehicle id
             direction (str): the direction which vehicle will turn to
+            speed (float, optional): vehicle speed
+                                     Defaults to -1.0 means not use this speed
 
         Returns:
             bool, str or None: whether vehicle could turn to the direction,
@@ -121,28 +127,31 @@ class SumoUtil:
         is_junction = self._is_junction(vehID)
         if is_junction and not is_along_route:
             return False, None
-        could_reach, cur_laneID = self._could_reach_junction(vehID)
+        could_reach, cur_laneID = self._could_reach_junction(vehID, speed)
         if not could_reach:
             return is_along_route, None
         cur_edgeID = self.traci_connect.lane.getEdgeID(cur_laneID)
+        cur_lane_index = cur_laneID.replace(cur_edgeID, "")[1:]
         next_edgeID = (
             cur_edgeID
             if is_junction
-            else self._graph.getNextInfoTo(cur_edgeID, direction)
+            else self._graph.getNextInfoTo(cur_edgeID, direction, cur_lane_index)
         )
         return next_edgeID is not None, next_edgeID
 
-    def turn(self, vehID, direction):
+    def turn(self, vehID, direction, speed=-1.0):
         """turn to the direction
 
         Args:
             vehID (str): vehicle id
             direction (str): the direction which vehicle will turn to
+            speed (float, optional): vehicle speed
+                                     Defaults to -1.0 means not use this speed
 
         Returns:
             bool: whether vehicle could turn
         """
-        could_turn, next_edgeID = self._could_turn(vehID, direction)
+        could_turn, next_edgeID = self._could_turn(vehID, direction, speed)
         if not could_turn:
             return False
         # not reach next junction, but, will move along direction

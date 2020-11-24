@@ -175,26 +175,26 @@ class SumoLightEnv(BaseEnv):
         v_list = self.traci_connect.vehicle.getIDList()
         removed_list = self._removed_vehID_list
         if vehID not in v_list or vehID in removed_list:
-            return is_take
-        cur_speed = self.traci_connect.vehicle.getSpeed(vehID)
-        if action <= DIRECT_FLAG:
-            direction = DIRECTION[action]
-            could_turn, _ = self._sumo_util._could_turn(vehID, direction)
-            if could_turn:
-                self._sumo_util.turn(vehID, direction)
-                is_take = True
-                self._reset_goal_element(vehID)
-                self._reset_routeID(vehID)
-        else:
+            return False
+        future_speed = -1.0
+        if action > DIRECT_FLAG:
+            cur_speed = self.traci_connect.vehicle.getSpeed(vehID)
             accel_rate = ACCEL[action - DIRECT_FLAG - 1]
             accel = self.traci_connect.vehicle.getAccel(vehID) * abs(accel_rate)
             decel = self.traci_connect.vehicle.getDecel(vehID) * abs(accel_rate) * -1.0
             future_accel = accel if accel_rate >= 0 else decel
             future_accel *= self._step_length
             future_speed = cur_speed + future_accel
-            is_take = True
-            if future_speed < 0.0:
-                future_speed = 0.0
-                is_take = False
+            is_take = future_speed >= 0.0
+            future_speed = future_speed if is_take else 0.0
             self.traci_connect.vehicle.setSpeed(vehID, future_speed)
+            if not is_take:
+                return False
+        direction = DIRECTION[0] if action > DIRECT_FLAG else DIRECTION[action]
+        could_turn, _ = self._sumo_util._could_turn(vehID, direction, future_speed)
+        is_take = could_turn
+        if could_turn:
+            self._sumo_util.turn(vehID, direction, future_speed)
+            self._reset_goal_element(vehID)
+            self._reset_routeID(vehID)
         return is_take
