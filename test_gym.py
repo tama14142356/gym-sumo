@@ -11,6 +11,7 @@ import gym_sumo
 #     "simlation_step": 100,
 #     "label": "default",
 #     "seed": None,
+#     "debug_view": False,
 # }
 carnum = 1
 kwargs = {
@@ -25,6 +26,7 @@ kwargs2 = {
     "carnum": carnum,
     "label": "default2",
     "seed": 2,
+    "debug_view": True,
 }
 
 # env = gym.make("gym_sumo:sumo-extrahard-v0", **kwargs)
