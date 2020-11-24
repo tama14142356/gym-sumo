@@ -145,7 +145,7 @@ class Graph:
         return self.__normalEdgeConnection
 
     def _getProcessInfo(self, curEdgeIndex, toEdgeID):
-        tmp = self.__normalEdgeConnection
+        tmp = self.getConnection()
         ans = [toEdgeID, None, None, None]
         isFinished = False
 
@@ -176,7 +176,7 @@ class Graph:
     # nextDirectionがNoneになることは想定していない。つまり、この車線から行ける全てまたは一部のedgeと方向を返すことは想定していない
     def _getNextInfo(self, curEdgeIndex, nextDirection, curLaneIndex=None):
         ans = [None, None, nextDirection, curLaneIndex]
-        tmp = self.__normalEdgeConnection
+        tmp = self.getConnection()
         # index error or not supported
         if curEdgeIndex >= len(tmp) or curEdgeIndex < 0 or not self.__isDirection:
             return ans
