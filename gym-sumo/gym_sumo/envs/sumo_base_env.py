@@ -73,15 +73,18 @@ class SumoBaseEnv(gym.Env):
         carnum=100,
         mode="gui",
         step_length=0.01,
-        simulation_end=3600,
+        simulation_end=200,
         seed=None,
         label="default",
+        debug_view=False,
     ):
         super().__init__()
         sumo_config = "sumo_configs/" + AREA[area]
         sumo_map = os.path.join(os.path.dirname(__file__), sumo_config)
         self._netpath = os.path.join(sumo_map, "osm.net.xml")
         self._sumocfg = os.path.join(sumo_map, "osm.sumocfg")
+        if debug_view:
+            self._sumocfg = os.path.join(sumo_map, "osm_debug.sumocfg")
         # set 1 video frame / 1s
         self.metadata = {
             "render.modes": ["human", "rgb_array"],
