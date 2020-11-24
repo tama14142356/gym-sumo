@@ -5,11 +5,11 @@ import copy
 
 
 class SumoUtil:
-    def __init__(self, graph, step_length, direction_list, traci_connect):
+    def __init__(self, graph, direction_list, traci_connect):
         self._graph = graph
-        self._step_length = step_length
         self._direction_list = direction_list
         self.traci_connect = traci_connect
+        self._step_length = self.traci_connect.simulation.getDeltaT()
 
     def get_target(self, vehID="", routeID=""):
         if len(routeID) > 0:
@@ -84,7 +84,7 @@ class SumoUtil:
         if self._is_junction(vehID):
             route = self.traci_connect.vehicle.getRoute(vehID)
             route_index = self.traci_connect.vehicle.getRouteIndex(vehID)
-            route_index += 1 if self._is_start(vehID) else 0
+            route_index += 0 if self._is_start(vehID) else 1
             if route_index >= len(route):
                 return False, cur_laneID
             cur_laneID = route[route_index] + "_0"
@@ -106,13 +106,18 @@ class SumoUtil:
                                if vehicle could turn, vehicle will reach
         """
         is_along_route = self._is_along_route(vehID, direction)
-        if self._is_junction(vehID) and not is_along_route:
+        is_junction = self._is_junction(vehID)
+        if is_junction and not is_along_route:
             return False, None
         could_reach, cur_laneID = self._could_reach_junction(vehID)
         if not could_reach:
             return is_along_route, None
         cur_edgeID = self.traci_connect.lane.getEdgeID(cur_laneID)
-        next_edgeID = self._graph.getNextInfoTo(cur_edgeID, direction)
+        next_edgeID = (
+            cur_edgeID
+            if is_junction
+            else self._graph.getNextInfoTo(cur_edgeID, direction)
+        )
         return next_edgeID is not None, next_edgeID
 
     def turn(self, vehID, direction):
@@ -128,6 +133,7 @@ class SumoUtil:
         could_turn, next_edgeID = self._could_turn(vehID, direction)
         if not could_turn:
             return False
+        # not reach next junction, but, will move along direction
         if next_edgeID is None:
             return True
         # move indirectly
@@ -148,24 +154,30 @@ class SumoUtil:
             self.traci_connect.vehicle.setRoute(vehID, new_edge_list)
         return True
 
-    def _get_route_length(self, vehID="", routeID="", route_edges=[]):
+    def _get_route_info(self, vehID="", routeID="", route_edges=[], route_info_list={}):
         if len(route_edges) > 0:
             route = copy.deepcopy(route_edges)
         if len(routeID) > 0:
+            if routeID in route_info_list:
+                return copy.deepcopy(route_info_list[routeID])
             route = self.traci_connect.route.getEdges(routeID)
         if len(vehID) > 0:
             route = self.traci_connect.vehicle.getRoute(vehID)
-        length = 0
+        travel_time, length = 0.0, 0.0
         num = len(route)
         for i, edgeID in enumerate(route):
             laneID = edgeID + "_0"
             length += self.traci_connect.lane.getLength(laneID)
+            # travel_time = length / max_speed on the laneID(traci.lane.getMaxSpeed())
+            travel_time += self.traci_connect.lane.getTraveltime(laneID)
             if i < num - 1:
                 next_edgeID = route[i + 1]
                 via_laneID = self._graph.getNextInfoVia(edgeID, toEdgeID=next_edgeID)
                 length += self.traci_connect.lane.getLength(via_laneID)
+                travel_time += self.traci_connect.lane.getTraveltime(via_laneID)
         del route
-        return length
+        route_info = {"length": length, "travel_time": travel_time, "cost": travel_time}
+        return route_info
 
     def _is_exist(self, pos, r, target):
         posx, posy = pos

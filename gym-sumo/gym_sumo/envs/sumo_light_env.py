@@ -3,7 +3,7 @@ from .sumo_base_env import DIRECTION
 from .sumo_base_env import STRAIGHT, UTURN, LEFT, PAR_LEFT, RIGHT, PAR_RIGHT
 from ._util import vector_decomposition, flatten_list
 
-from IPython import embed  # for debug
+# from IPython import embed  # for debug
 from gym import spaces
 import numpy as np
 
@@ -108,7 +108,8 @@ class SumoLightEnv(BaseEnv):
                 # progress bonus
                 cur_driving_len = self.traci_connect.vehicle.getDistance(vehID)
                 progress = cur_driving_len - pre_driving_len
-                total_length = self._sumo_util._get_route_length(vehID)
+                routeID = self._vehID_list[vehID]["route"]
+                total_length = self._route_list[routeID]["length"]
                 if progress > 0:
                     reward += 0.1
                     reward += 0.0 if total_length <= 0 else progress / total_length
@@ -122,9 +123,8 @@ class SumoLightEnv(BaseEnv):
         return observation, reward, isdone, info
 
     def reset(self):
-        vehID = list(self._vehID_list)[0]
         self._reposition_car()
-        self._removed_vehID_list.clear()
+        vehID = list(self._vehID_list)[0]
         if self._mode == "gui":
             viewID = self.traci_connect.gui.DEFAULT_VIEW
             # self.traci_connect.gui.trackVehicle(viewID, vehID)
@@ -149,7 +149,7 @@ class SumoLightEnv(BaseEnv):
         if pos[0] == tc.INVALID_DOUBLE_VALUE or pos[1] == tc.INVALID_DOUBLE_VALUE:
             pos[0], pos[1] = -np.inf, -np.inf
         goal_pos = self._goal[vehID]["pos"]
-        relative_goal_pos = list(goal_pos - np.array(pos))
+        relative_goal_pos = list(np.array(goal_pos) - np.array(pos))
         veh_len = self.traci_connect.vehicle.getLength(vehID)
         angle = self.traci_connect.vehicle.getAngle(vehID)
         veh_vector = list(vector_decomposition(veh_len, angle))
@@ -157,9 +157,12 @@ class SumoLightEnv(BaseEnv):
         turn_direction = [0.0] * (DIRECT_FLAG + 1)
         if could_reach:
             cur_edgeID = self.traci_connect.lane.getEdgeID(cur_laneID)
+            cur_lane_index = cur_laneID.replace(cur_edgeID, "")[1:]
             for i in range(DIRECT_FLAG):
                 direction = DIRECTION[i]
-                next_edgeID = self._graph.getNextInfoTo(cur_edgeID, direction)
+                next_edgeID = self._graph.getNextInfoTo(
+                    cur_edgeID, direction, cur_lane_index
+                )
                 turn_direction[i] = 0.0 if next_edgeID is None else 1.0
         goal_vector = list(self._goal[vehID]["direct"])
         obs = [relative_goal_pos, veh_vector, turn_direction, goal_vector]
@@ -180,8 +183,8 @@ class SumoLightEnv(BaseEnv):
             if could_turn:
                 self._sumo_util.turn(vehID, direction)
                 is_take = True
-                goal_edgeID = self._sumo_util.get_target(vehID)
-                self._reset_goal_element(vehID, goal_edgeID)
+                self._reset_goal_element(vehID)
+                self._reset_routeID(vehID)
         else:
             accel_rate = ACCEL[action - DIRECT_FLAG - 1]
             accel = self.traci_connect.vehicle.getAccel(vehID) * abs(accel_rate)
