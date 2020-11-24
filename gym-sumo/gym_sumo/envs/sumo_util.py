@@ -38,7 +38,19 @@ class SumoUtil:
             return False
         to_edgeID = route[route_index]
         cur_edgeID = route[route_index - 1]
-        direct = self._graph.getNextInfoDirect(curEdgeID=cur_edgeID, toEdgeID=to_edgeID)
+        lane_num = self.traci_connect.edge.getLaneNumber(cur_edgeID)
+        cur_lane_index = ""
+        for index in range(lane_num):
+            lane_index = str(index)
+            via_laneID = self._graph.getNextInfoVia(
+                cur_edgeID, lane_index, toEdgeID=to_edgeID
+            )
+            if via_laneID == self.traci_connect.vehicle.getLaneID(vehID):
+                cur_lane_index = lane_index
+                break
+        if len(cur_lane_index) <= 0:
+            return False
+        direct = self._graph.getNextInfoDirect(cur_edgeID, to_edgeID, cur_lane_index)
         return direct == direction
 
     def _is_junction(self, vehID):
