@@ -144,14 +144,25 @@ class Graph:
     def getConnection(self):
         return self.__normalEdgeConnection
 
-    def _getProcessInfo(self, curEdgeIndex, toEdgeID):
+    def _getProcessInfo(self, curEdgeIndex, toEdgeID, curLaneIndex=None):
         tmp = self.getConnection()
-        ans = [toEdgeID, None, None, None]
+        ans = [toEdgeID, None, None, curLaneIndex]
         isFinished = False
 
         # index error or not supported
         if curEdgeIndex >= len(tmp) or curEdgeIndex < 0 or not self.__isDirection:
             isFinished = True
+
+        if curLaneIndex in tmp[curEdgeIndex]:
+            for direct in tmp[curEdgeIndex][curLaneIndex]:
+                for edges in tmp[curEdgeIndex][curLaneIndex][direct]:
+                    if edges["to"] == toEdgeID:
+                        ans[1] = edges["via"]
+                        ans[2] = direct
+                        ans[3] = curLaneIndex
+                        return ans
+        if curLaneIndex is not None:
+            return ans
 
         for lane in tmp[curEdgeIndex]:
             if isFinished:
