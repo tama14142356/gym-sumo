@@ -46,11 +46,15 @@ class SumoGraph:
         index = -1 if edgeID not in all_edgeID_list else all_edgeID_list.index(edgeID)
         return index
 
-    def get_laneID(self, edgeID, lane_index):
+    def get_laneID(self, edgeID, lane_index=0):
         if not self.network.hasEdge(edgeID):
             return ""
         edge_obj = self.network.getEdge(edgeID)
         return edge_obj.getLane(lane_index).getID()
+
+    def get_lane_index(self, laneID):
+        lane_obj = self.network.getLane(laneID)
+        return lane_obj.getIndex()
 
     def is_internal_edgeID(self, edgeID):
         if not self.network.hasEdge(edgeID):
@@ -125,28 +129,65 @@ class SumoGraph:
             map(lambda key: next_edge_dict[key][0].getDirection(), next_edge_dict)
         )
 
-    def get_next_edgeID_info(self, cur_edgeID, next_edgeID, cur_lane_index=-1):
+    def _get_next_edge_info(
+        self, cur_edgeID, next_edgeID, cur_lane_index=-1, to_lane_index=-1
+    ):
         net = self.network
         if not net.hasEdge(cur_edgeID) or not net.hasEdge(next_edgeID):
             return []
         cur_edge_obj = net.getEdge(cur_edgeID)
         next_edge_obj = net.getEdge(next_edgeID)
-        connections = cur_edge_obj.getConnections(next_edge_obj)
-        if cur_lane_index < 0:
-            return connections
-        return [c for c in connections if c.getFromLane().getIndex() == cur_lane_index]
+        conns = cur_edge_obj.getConnections(next_edge_obj)
+        if cur_lane_index < 0 and to_lane_index < 0:
+            return conns
+        conn = []
+        if cur_lane_index >= 0:
+            conn = [c for c in conns if c.getFromLane().getIndex() == cur_lane_index]
+        if to_lane_index >= 0:
+            tmp = conns if len(conn) <= 0 else conn
+            return [c for c in tmp if c.getToLane().getIndex() == to_lane_index]
+        return conn
 
-    def get_next_edgeID_direction(self, cur_edgeID, next_edgeID, cur_lane_index=0):
-        conn_info = self.get_next_edgeID_info(cur_edgeID, next_edgeID, cur_lane_index)
-        if len(conn_info) > 0:
-            return conn_info[0].getDirection()
-        return ""
+    def get_next_edge_info(
+        self, cur_edgeID, next_edgeID, cur_lane_index=-1, to_lane_index=-1
+    ):
+        conn_info = self._get_next_edge_info(
+            cur_edgeID, next_edgeID, cur_lane_index, to_lane_index
+        )
+        next_info = [""] * 8
+        if len(conn_info) <= 0:
+            return next_info
+        next_info[0] = conn_info[0].getDirection()
+        from_lane_obj = conn_info[0].getFromLane()
+        next_info[1] = from_lane_obj.getEdge().getID()
+        next_info[2] = from_lane_obj.getID()
+        next_info[3] = str(from_lane_obj.getIndex())
+        next_info[4] = conn_info[0].getViaLaneID()
+        to_lane_obj = conn_info[0].getToLane()
+        next_info[5] = to_lane_obj.getEdge().getID()
+        next_info[6] = to_lane_obj.getID()
+        next_info[7] = str(to_lane_obj.getIndex())
+        return next_info
 
-    def get_next_edgeID_to_lane(self, cur_edgeID, next_edgeID, cur_lane_index=0):
-        conn_info = self.get_next_edgeID_info(cur_edgeID, next_edgeID, cur_lane_index)
-        if len(conn_info) > 0:
-            return conn_info[0].getToLane().getIndex()
-        return -1
+    def get_next_direction(
+        self, cur_edgeID, next_edgeID, cur_lane_index=0, to_lane_index=-1
+    ):
+        next_info = self.get_next_edge_info(
+            cur_edgeID, next_edgeID, cur_lane_index, to_lane_index
+        )
+        return next_info[0]
+
+    def get_next_to_lane(self, cur_edgeID, next_edgeID, cur_lane_index=0):
+        next_info = self.get_next_edge_info(cur_edgeID, next_edgeID, cur_lane_index)
+        to_lane_index = -1 if next_info[7] == "" else int(next_info[7])
+        to_laneID = next_info[6]
+        return to_lane_index, to_laneID
+
+    def get_via_laneID(self, from_edgeID, to_edgeID, from_lane_index, to_lane_index=-1):
+        next_info = self.get_next_edge_info(
+            from_edgeID, to_edgeID, from_lane_index, to_lane_index
+        )
+        return next_info[4]
 
     def get_next_edgeID(self, cur_edgeID, next_direction, cur_lane_index=0):
         next_edge_dict = self.get_next_edge_dict(cur_edgeID, cur_lane_index)
@@ -182,28 +223,21 @@ class SumoGraph:
             map(lambda key: from_edge_dict[key][0].getDirection(), from_edge_dict)
         )
 
-    def get_from_edgeID_info(self, cur_edgeID, from_edgeID, cur_lane_index=-1):
-        net = self.network
-        if not net.hasEdge(cur_edgeID) or not net.hasEdge(from_edgeID):
-            return []
-        cur_edge_obj = net.getEdge(cur_edgeID)
-        from_edge_obj = net.getEdge(from_edgeID)
-        connections = from_edge_obj.getConnections(cur_edge_obj)
-        if cur_lane_index < 0:
-            return connections
-        return [c for c in connections if c.getToLane().getIndex() == cur_lane_index]
+    def get_from_edge_info(
+        self, cur_edgeID, from_edgeID, cur_lane_index=-1, from_lane_index=-1
+    ):
+        return self.get_next_edge_info(
+            from_edgeID, cur_edgeID, from_lane_index, cur_lane_index
+        )
 
     def get_from_edgeID_direction(self, cur_edgeID, from_edgeID, cur_lane_index=0):
-        conn_info = self.get_from_edgeID_info(cur_edgeID, from_edgeID, cur_lane_index)
-        if len(conn_info) > 0:
-            return conn_info[0].getDirection()
-        return ""
+        return self.get_next_direction(from_edgeID, cur_edgeID, -1, cur_lane_index)
 
-    def get_from_edgeID_from_lane(self, cur_edgeID, from_edgeID, cur_lane_index=0):
-        conn_info = self.get_from_edgeID_info(cur_edgeID, from_edgeID, cur_lane_index)
-        if len(conn_info) > 0:
-            return conn_info[0].getFromLane().getIndex()
-        return -1
+    def get_from_from_lane(self, cur_edgeID, from_edgeID, cur_lane_index=0):
+        from_info = self.get_from_edge_info(cur_edgeID, from_edgeID, cur_lane_index)
+        from_laneID = from_info[2]
+        from_lane_index = -1 if from_info[3] == "" else from_info[3]
+        return from_lane_index, from_laneID
 
     def get_from_edgeID(self, cur_edgeID, from_direction, cur_lane_index=0):
         from_edge_dict = self.get_from_edge_dict(cur_edgeID, cur_lane_index)
@@ -238,7 +272,20 @@ if __name__ == "__main__":
     # for edge, conn in next_edgeID_dict.items():
     #     print(list(map(str, conn)), edge)
     next_edgeID = next_edgeID_list_lane_1[0]
-    next_edgeID_info = sumo_network.get_next_edgeID_info(edgeID, next_edgeID, 1)
+    next_edgeID = next_edgeID_list[0]
+    _next_edgeID_info = sumo_network._get_next_edge_info(edgeID, next_edgeID, 1)
+    next_edgeID_info = sumo_network.get_next_edge_info(edgeID, next_edgeID, 1)
+    via_laneID = sumo_network.get_via_laneID(edgeID, next_edgeID, 0)
+    test = [""] * 8
+    test[0] = "empty"
+    directions = sumo_network.get_next_directions(edgeID, 0)
+    directions = []
+    test = sumo_network.get_next_directions(edgeID, 0)
+    DIRECTION = ["s", "l", "L", "r", "R", "T"]
+    turn_direction = list(
+        map(lambda direct: 1.0 if direct in directions else 0.0, DIRECTION)
+    )
+    turn_direction = list(map(lambda direct: 1.0 if direct in test else 0.0, DIRECTION))
     # # print(next_edgeID_info, list(map(str, next_edgeID_info)))
     from_edge_dict = sumo_network.get_from_edge_dict(edgeID, 1)
     # print(from_edge_dict)
@@ -247,4 +294,4 @@ if __name__ == "__main__":
     from_direction_list = sumo_network.get_from_directions(edgeID)
     # print(from_direction_list)
     from_edgeID = sumo_network.get_from_edgeID(edgeID, "s", 0)
-    # print(from_edgeID)
+    print(from_edgeID)
