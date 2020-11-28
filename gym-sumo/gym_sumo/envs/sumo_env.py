@@ -77,10 +77,10 @@ class SumoEnv(BaseEnv):
         self._init_simulator(mode=mode, step_length=self._step_length)
         self._vehID_list.clear()
         self._removeID_list.clear()
-        self._add_car(self._carnum)
-        observation = self._observation()
+        self._add_all_car()
         self.__is_init = False
         self.traci_connect.simulationStep()
+        observation = self._observation()
         return observation
 
     def render(self, mode="human"):
@@ -92,14 +92,14 @@ class SumoEnv(BaseEnv):
         v_list = self.traci_connect.vehicle.getIDList()
         collision_list = self.traci_connect.simulation.getCollidingVehiclesIDList()
         reward_list = [0] * self._carnum
-        removed_list = self._removeID_list
+        removed_list = self._removed_vehID_list
         # exist_num = self._carnum - len(removed_list)
         for i, vehID in enumerate(self._vehID_list):
             reward = 0
             if vehID in v_list and vehID not in removed_list:
                 if is_take_action[i]:
                     cur_length = self.traci_connect.vehicle.getDistance(vehID)
-                    total_len = self.get_route_length(vehID)
+                    total_len = self._sumo_util._get_route_info(vehID).get("length")
                     # if this car has never moved, reward=0
                     tmp = 0
                     # if this car has already moved,
@@ -122,7 +122,7 @@ class SumoEnv(BaseEnv):
         return reward_list
 
     def _observation(self):
-        vehID_list = self._vehID_list
+        vehID_list = list(self._vehID_list)
         if self._isgraph:
             for vehID in vehID_list:
                 v_info = {}
@@ -130,17 +130,17 @@ class SumoEnv(BaseEnv):
                 v_info["pos"] = list(self.traci_connect.vehicle.getPosition(vehID))
                 v_info["speed"] = [self.traci_connect.vehicle.getSpeed(vehID)]
                 v_info["exist"] = v_info["speed"] != tc.INVALID_DOUBLE_VALUE
-                v_info["curEdgeID"] = self.traci_connect.vehicle.getRoadID(vehID)
+                v_info["cur_edgeID"] = self.traci_connect.vehicle.getRoadID(vehID)
                 road = self.traci_connect.vehicle.getRoute(vehID)
                 road_index = self.traci_connect.vehicle.getRouteIndex(vehID)
-                v_info["nextEdgeID"] = None
+                v_info["next_edgeID"] = ""
                 if len(road) > road_index:
-                    v_info["nextEdgeID"] = road[road_index + 1]
+                    v_info["next_edgeID"] = road[road_index + 1]
                 if self.__is_init:
-                    self._graph.addNode(v_info)
+                    self._graph.add_vehicle_in_node(v_info)
                 else:
-                    self._graph.updateNode(v_info)
-            obs = self._graph.getGraph()
+                    self._graph.update_vehicle_info_in_node(v_info)
+            obs = self._graph.get_graph()
             observation = self.change_numpy(obs)
             self.data = obs
         return observation
@@ -246,28 +246,22 @@ class SumoEnv(BaseEnv):
                     route_index = self.traci_connect.vehicle.getRouteIndex(vehID)
                     route = self.traci_connect.vehicle.getRoute(vehID)
                     if route_index + 1 < len(route):
-                        toEdgeID = route[route_index + 1]
-                        preEdgeID = route[route_index]
-                        direct = self._graph.getNextInfoDirect(
-                            curEdgeID=preEdgeID, toEdgeID=toEdgeID
+                        to_edgeID = route[route_index + 1]
+                        from_edgeID = route[route_index]
+                        cur_edgeID = self.traci_connect.vehicle.getRoadID(vehID)
+                        cur_lane_index = self.traci_connect.vehicle.getLaneIndex(vehID)
+                        from_lane_index = (
+                            self._graph.sumo_network.get_from_edgeID_from_lane(
+                                cur_edgeID, from_edgeID, cur_lane_index
+                            )
                         )
-                        if direct == direction:
+                        cur_direction = self._graph.sumo_network.get_next_direction(
+                            from_edgeID, to_edgeID, from_lane_index
+                        )
+                        if cur_direction == direction:
                             is_take = True
                 else:
                     if direction == DIRECTION[STRAIGHT]:
                         is_take = True
         self.traci_connect.vehicle.setSpeed(vehID, future_speed)
         return is_take
-
-    def get_route_length(self, vehID):
-        route = self.traci_connect.vehicle.getRoute(vehID)
-        length = 0
-        num = len(route)
-        for i, edgeID in enumerate(route):
-            laneID = edgeID + "_0"
-            length += self.traci_connect.lane.getLength(laneID)
-            if i < num - 1:
-                next_edgeID = route[i + 1]
-                via_laneID = self._graph.getNextInfoVia(edgeID, toEdgeID=next_edgeID)
-                length += self.traci_connect.lane.getLength(via_laneID)
-        return length
