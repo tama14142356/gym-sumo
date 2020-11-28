@@ -201,7 +201,7 @@ def get_base_vector(start_pos, target_pos, norm=1.0):
     vector = _get_vector(start_pos, target_pos)
     vector_norm = np.linalg.norm(vector, ord=2)
     base_vector = vector / vector_norm
-    ans_vector = base_vector * norm
+    ans_vector = base_vector * np.sqrt(norm)
     return ans_vector
 
 

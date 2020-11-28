@@ -44,6 +44,22 @@ PAR_RIGHT = 5
 
 DIRECTION = ["s", "T", "l", "L", "r", "R"]
 
+INFO = {
+    "is_take": False,
+    "is_removed": False,
+    "cur_step": -1.0,
+    "cur_sm_step": -1.0,
+    "is_arrived": False,
+    "needs_reset": False,
+    "goal": {},
+    "cur_lane": "",
+    "cur_lane_pos": -1.0,
+    "lane_len": -1.0,
+    "speed": -1.0,
+    "pos": (-1.0, -1.0),
+    "driving_len": -1.0,
+}
+
 # vehicle signal number
 VEH_SIGNALS = {
     0: "VEH_SIGNAL_BLINKER_RIGHT",
@@ -102,6 +118,7 @@ class SumoBaseEnv(gym.Env):
         self._vehID_list = {}
         self._goal = {}
         self._removed_vehID_list = []
+        self._arrived_vehID_list = []
         self._start_edge_list = []
         self.seed(seed)
         self._graph = Graph(self._netpath)
@@ -146,20 +163,25 @@ class SumoBaseEnv(gym.Env):
         cur_step = cur_sumo_time - self._cur_simulation_start
         return cur_step
 
+    def _get_vector_pos_edgeID(self, edgeID, lane_index=0):
+        laneID = self._network.get_laneID(edgeID, lane_index)
+        lane_pos_list = self.traci_connect.lane.getShape(laneID)
+        shape_num = len(lane_pos_list)
+        end_pos = lane_pos_list[shape_num - 1]
+        start_or_mid_pos = lane_pos_list[shape_num - 2]
+        vector = get_base_vector(start_or_mid_pos, end_pos)
+        return vector, end_pos
+
     def _reset_goal_element(self, vehID="", goal_edgeID=""):
         if len(vehID) <= 0:
             vehID = list(self._vehID_list)[0]
         if len(goal_edgeID) <= 0:
             goal_edgeID = self._sumo_util.get_target(vehID)
         self._vehID_list[vehID]["goal"] = goal_edgeID
-        goal_laenID = goal_edgeID + "_0"
         goal_element = {}
-        lane_pos = self.traci_connect.lane.getShape(goal_laenID)
-        shape_num = len(lane_pos)
-        end_pos = lane_pos[shape_num - 1]
-        start_or_mid_pos = lane_pos[shape_num - 2]
-        goal_element["pos"] = list(end_pos)
-        goal_element["direct"] = get_base_vector(start_or_mid_pos, end_pos)
+        vector, pos = self._get_vector_pos_edgeID(goal_edgeID)
+        goal_element["direct"] = vector
+        goal_element["pos"] = list(pos)
         self._goal[vehID] = goal_element
 
     def _reset_routeID(self, vehID="", routeID=""):
@@ -211,6 +233,19 @@ class SumoBaseEnv(gym.Env):
         traci.start(sumo_cmd, numRetries=100, label=label)
         self.traci_connect = traci.getConnection(label)
 
+    def _remove_car_if_necessary(self, vehID, is_remove):
+        collision_list = self.traci_connect.simulation.getCollidingVehiclesIDList()
+        vehID_list = self.traci_connect.vehicle.getIDList()
+        removed_list = self._removed_vehID_list
+        if vehID in removed_list:
+            return
+        if vehID not in vehID_list:
+            self._removed_vehID_list.append(vehID)
+            return
+        if is_remove or vehID in collision_list:
+            self.traci_connect.vehicle.remove(vehID, tc.REMOVE_TELEPORT)
+            self._removed_vehID_list.append(vehID)
+
     def _add_all_car(self):
         for i in range(self._carnum):
             self._add_car(i)
@@ -240,8 +275,8 @@ class SumoBaseEnv(gym.Env):
         self.traci_connect.vehicle.setSpeedMode(vehID, 0)
         self.traci_connect.vehicle.setSpeed(vehID, 0.0)
         self.traci_connect.simulationStep()
-        start_pos = self.traci_connect.vehicle.getLanePosition(vehID)
-        self._vehID_list[vehID]["start_pos"] = start_pos
+        start_pos = self.traci_connect.vehicle.getPosition(vehID)
+        self._vehID_list[vehID]["start_pos"] = list(start_pos)
         is_load = vehID in self.traci_connect.vehicle.getIDList()
         self._vehID_list[vehID]["is_load"] = is_load
         self._reset_simulate_time()
@@ -251,6 +286,7 @@ class SumoBaseEnv(gym.Env):
         v_list = self.traci_connect.vehicle.getIDList()
         self._vehID_list.clear()
         self._removed_vehID_list.clear()
+        self._arrived_vehID_list.clear()
         self._route_list.clear()
         self._goal.clear()
         for i in range(self._carnum):
