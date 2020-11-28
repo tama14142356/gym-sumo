@@ -105,8 +105,9 @@ class SumoBaseEnv(gym.Env):
         self._start_edge_list = []
         self.seed(seed)
         self._graph = Graph(self._netpath)
+        self._network = self._graph.sumo_network
         self._init_simulator(mode, step_length=step_length)
-        self._sumo_util = SumoUtil(self._graph, DIRECTION, self.traci_connect)
+        self._sumo_util = SumoUtil(self._network, DIRECTION, self.traci_connect)
         self._add_all_car()
 
     def render(self, mode="human"):
@@ -226,7 +227,7 @@ class SumoBaseEnv(gym.Env):
         if is_create_route or routeID not in route_list:
             routeID, start_end_edge = self._generate_route(index)
             start_edgeID, goal_edgeID = start_end_edge
-            self._start_edge_list.append(self._graph.getEdgeIndex(start_edgeID))
+            self._start_edge_list.append(self._network.get_edge_index(start_edgeID))
         else:
             route = self.traci_connect.route.getEdges(routeID)
             start_edgeID, goal_edgeID = route[0], route[len(route) - 1]
@@ -285,12 +286,12 @@ class SumoBaseEnv(gym.Env):
         return routeID, start_end_edge
 
     def _find_route(self, routeID, exclude=[]):
-        num_edge = self._graph.getNum("edge_normal") - 1
+        num_edge = self._graph.get_num("edge_normal") - 1
         edges = random_tuple(
             0, num_edge, 2, self._start_edge_list, exclude, self.np_random
         )
-        from_edgeID = self._graph.getEdgeID(edges[0])
-        to_edgeID = self._graph.getEdgeID(edges[1])
+        from_edgeID = self._network.get_edgeID(edges[0])
+        to_edgeID = self._network.get_edgeID(edges[1])
         if edges in exclude:
             return False, edges, None, []
         route = self.traci_connect.simulation.findRoute(from_edgeID, to_edgeID)

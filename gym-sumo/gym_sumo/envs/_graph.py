@@ -320,6 +320,15 @@ if __name__ == "__main__":
     sumoBinary = os.path.join(
         os.path.dirname(__file__), "sumo_configs/nishiwaseda/osm.net.xml"
     )
+
+    def test_func(test_str):
+        return test_str, [] if test_str == "" else [test_str]
+
+    test = [""]
+    test2 = list(map(test_func, test))
+
+    test_edge_list = ["98726975", "415221603#10"]
+    test_sub = test_edge_list[: len(test_edge_list) - 1]
     tree = ET.parse(sumoBinary)
     root = tree.getroot()
     print(root, type(root))

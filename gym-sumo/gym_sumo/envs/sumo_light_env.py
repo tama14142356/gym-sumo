@@ -163,16 +163,14 @@ class SumoLightEnv(BaseEnv):
         angle = self.traci_connect.vehicle.getAngle(vehID)
         veh_vector = list(vector_decomposition(veh_len, angle))
         could_reach, cur_laneID = self._sumo_util._could_reach_junction(vehID)
-        turn_direction = [0.0] * (DIRECT_FLAG + 1)
+        directions = []
         if could_reach:
             cur_edgeID = self.traci_connect.lane.getEdgeID(cur_laneID)
             cur_lane_index = cur_laneID.replace(cur_edgeID, "")[1:]
-            for i in range(DIRECT_FLAG):
-                direction = DIRECTION[i]
-                next_edgeID = self._graph.getNextInfoTo(
-                    cur_edgeID, direction, cur_lane_index
-                )
-                turn_direction[i] = 0.0 if next_edgeID is None else 1.0
+            directions = self._network.get_next_directions(cur_edgeID, cur_lane_index)
+        turn_direction = list(
+            map(lambda direct: 1.0 if direct in directions else 0.0, DIRECTION)
+        )
         goal_vector = list(self._goal[vehID]["direct"])
         obs = [relative_goal_pos, veh_vector, turn_direction, goal_vector]
         obs_flat_list = flatten_list(obs)
@@ -200,7 +198,7 @@ class SumoLightEnv(BaseEnv):
             if not is_take:
                 return False
         direction = DIRECTION[0] if action > DIRECT_FLAG else DIRECTION[action]
-        could_turn, _ = self._sumo_util._could_turn(vehID, direction, future_speed)
+        could_turn, _, _ = self._sumo_util._could_turn(vehID, direction, future_speed)
         is_take = could_turn
         if could_turn:
             self._sumo_util.turn(vehID, direction, future_speed)

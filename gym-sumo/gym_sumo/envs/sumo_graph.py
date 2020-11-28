@@ -260,7 +260,7 @@ if __name__ == "__main__":
     # edgeID = "98726975"
     edgeID = "415221603#10"
     all_edgeID_list = sumo_network.get_all_edgeID_list()
-    # edgeID = all_edgeID_list[0]
+    edgeID = all_edgeID_list[0]
     next_edgeID_list = sumo_network.get_next_edgeIDs(edgeID)
     # print(next_edgeID_list, type(next_edgeID_list[0]))
     next_edgeID_list_lane_1 = sumo_network.get_next_edgeIDs(edgeID, 1)
@@ -271,8 +271,9 @@ if __name__ == "__main__":
     # print(next_edgeID_dict)
     # for edge, conn in next_edgeID_dict.items():
     #     print(list(map(str, conn)), edge)
-    next_edgeID = next_edgeID_list_lane_1[0]
+    # next_edgeID = next_edgeID_list_lane_1[0]
     next_edgeID = next_edgeID_list[0]
+    next_edgeID = sumo_network.get_next_edgeID(edgeID, "l", 0)
     _next_edgeID_info = sumo_network._get_next_edge_info(edgeID, next_edgeID, 1)
     next_edgeID_info = sumo_network.get_next_edge_info(edgeID, next_edgeID, 1)
     via_laneID = sumo_network.get_via_laneID(edgeID, next_edgeID, 0)
