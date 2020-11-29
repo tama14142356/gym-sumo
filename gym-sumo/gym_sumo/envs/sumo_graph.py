@@ -185,8 +185,8 @@ class SumoGraph:
         if cur_lane_index >= 0 and to_lane_index >= 0:
             return next_info_list[0]
         for next_info in next_info_list:
-            is_cur = int(next_info[3]) == cur_lane_index
-            is_to = int(next_info[7]) == to_lane_index
+            is_cur = next_info[3] == str(cur_lane_index)
+            is_to = next_info[7] == str(to_lane_index)
             if is_cur or is_to:
                 return next_info
         return [""] * 8
