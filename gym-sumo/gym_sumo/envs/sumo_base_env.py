@@ -6,7 +6,7 @@ import os
 import sys
 import copy
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import tempfile
 
 # from IPython import embed  # for debug
@@ -43,6 +43,7 @@ RIGHT = 4
 PAR_RIGHT = 5
 
 DIRECTION = ["s", "T", "l", "L", "r", "R"]
+RENDER_TEXT = ["STRAIGHT", "UTURN", "LEFT", "PAR_LEFT", "RIGHT", "PAR_RIGHT"]
 
 INFO = {
     "is_take": False,
@@ -107,6 +108,7 @@ class SumoBaseEnv(gym.Env):
             "video.frames_per_second": 1,
         }
         self.np_img = None
+        self.action_text = RENDER_TEXT.copy()
         self._cur_simulation_start = 0.0
         self._carnum = carnum
         self._mode = mode
@@ -336,17 +338,39 @@ class SumoBaseEnv(gym.Env):
         is_find = len(route.edges) > 0 and total_length <= MAX_LENGTH
         return is_find, edges, route_info, route.edges
 
-    def screenshot_and_simulation_step(self, vehID=""):
+    def screenshot_and_simulation_step(self, action=-1, vehID="", is_take=True):
         with tempfile.TemporaryDirectory() as tmpdir:
             viewID = self.traci_connect.gui.DEFAULT_VIEW
             if len(vehID) <= 0:
                 vehID = list(self._vehID_list)[0]
             # gui.trackVehicleの代わり
-            x, y = self.traci_connect.vehicle.getPosition(vehID)
+            x, y = self.traci_connect.gui.getOffset()
+            if vehID in self.traci_connect.vehicle.getIDList():
+                x, y = self.traci_connect.vehicle.getPosition(vehID)
             self.traci_connect.gui.setOffset(viewID, x, y)
             img_path = tmpdir + "/screenshot.png"
             self.traci_connect.gui.screenshot(viewID, img_path)
             self.traci_connect.simulationStep()
             with open(img_path, "rb") as f:
                 img = Image.open(f).convert("RGB")
+                # get a font
+                fnt = ImageFont.truetype("Pillow/Tests/fonts/FreeMono.ttf", 40)
+                # get a drawing context
+                d = ImageDraw.Draw(img)
+                # draw multiline text
+                text = self.create_render_text(action, vehID, is_take)
+                d.multiline_text((10, 10), text, font=fnt, fill=(255, 0, 0))
                 self.np_img = np.array(img)
+
+    def create_render_text(self, action, vehID, is_take):
+        is_reset = action < 0
+        action_text = "action: " + ("RESET" if is_reset else self.action_text[action])
+        action_text += "(" + str(action) + ")"
+        sim_time_tx = "simulation time: " + str(self.traci_connect.simulation.getTime())
+        step_tx = "current step: " + ("0.0" if is_reset else str(self._get_cur_step()))
+        text = action_text + "\n" + sim_time_tx + "\n" + step_tx
+        if not is_take:
+            text += "\nCRASH!!"
+        elif vehID in self.traci_connect.simulation.getArrivedIDList():
+            text += "\nARRIVED!!"
+        return text

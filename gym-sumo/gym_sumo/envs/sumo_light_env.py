@@ -22,6 +22,7 @@ NEG_LARGE = 8
 NEG_SMALL = 9
 
 ACCEL = [1.0, 0.2, -1.0, -0.2]
+RENDER_TEXT = ["LARGE ACCEL", "SMALL ACCEL", "LARGE DECEL", "SMALL DECEL"]
 
 
 class SumoLightEnv(BaseEnv):
@@ -49,6 +50,7 @@ class SumoLightEnv(BaseEnv):
             debug_view,
         )
         # 6action and accel, brake
+        self.action_text = self.action_text + RENDER_TEXT.copy()
         self.action_space = spaces.Discrete(10)
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf, dtype=np.float32, shape=(12,)
@@ -60,7 +62,7 @@ class SumoLightEnv(BaseEnv):
             vehID = list(self._vehID_list)[0]
         is_take = self._take_action(vehID, action)
         if self._mode == "gui":
-            self.screenshot_and_simulation_step()
+            self.screenshot_and_simulation_step(action, vehID, is_take)
         else:
             self.traci_connect.simulationStep()
 
@@ -72,7 +74,7 @@ class SumoLightEnv(BaseEnv):
         info["is_removed"] = vehID in removed_list
         info["cur_step"] = self._get_cur_step()
         info["cur_sm_step"] = self.traci_connect.simulation.getTime()
-        info["is_arrived"] = vehID in acheived_list
+        info["is_arrived"] = vehID in acheived_list and not info["is_removed"]
         info["needs_reset"] = info["is_removed"] or info["is_arrived"]
         info["goal"] = self._vehID_list[vehID]["goal"]
 
@@ -88,6 +90,7 @@ class SumoLightEnv(BaseEnv):
         if vehID not in removed_list:
             if vehID in acheived_list:
                 self._removed_vehID_list.append(vehID)
+                self._arrived_vehID_list.append(vehID)
                 reward += 100.0
             else:
                 # progress bonus
@@ -116,21 +119,20 @@ class SumoLightEnv(BaseEnv):
         observation = self._observation(vehID)
         return observation
 
-    def _start_observation(self, vehID):
+    def _remove_observation(self, vehID):
         goal_pos = self._goal[vehID]["pos"]
         start_edgeID = self._vehID_list[vehID]["start"]
         start_pos = self._vehID_list[vehID].get("start_pos", [0.0, 0.0])
-        relative_goal_pos = list(np.array(goal_pos) - np.array(start_pos))
+        relative_pos = list(np.array(goal_pos) - np.array(start_pos))
         start_vector, _ = self._get_vector_pos_edgeID(start_edgeID)
         turn_direction = [0.0] * (DIRECT_FLAG + 1)
-        turn_direction[0] = 1.0
         goal_vector = list(self._goal[vehID]["direct"])
-        observation = [relative_goal_pos, start_vector, turn_direction, goal_vector]
+        observation = [relative_pos, list(start_vector), turn_direction, goal_vector]
         return np.array(flatten_list(observation), dtype=np.float32)
 
     def _done_observation(self, vehID, is_arrived=True):
         if not is_arrived:
-            return self._start_observation(vehID)
+            return self._remove_observation(vehID)
         goal_vector = list(self._goal[vehID]["direct"])
         relative_goal_pos = list([0.0, 0.0])
         goal_edgeID = self._vehID_list[vehID]["goal"]
@@ -171,6 +173,7 @@ class SumoLightEnv(BaseEnv):
         v_list = self.traci_connect.vehicle.getIDList()
         removed_list = self._removed_vehID_list
         if vehID not in v_list or vehID in removed_list:
+            self._remove_car_if_necessary(vehID, (not is_take))
             return False
         future_speed = -1.0
         if action > DIRECT_FLAG:
@@ -185,6 +188,7 @@ class SumoLightEnv(BaseEnv):
             future_speed = future_speed if is_take else 0.0
             self.traci_connect.vehicle.setSpeed(vehID, future_speed)
             if not is_take:
+                self._remove_car_if_necessary(vehID, (not is_take))
                 return False
         direction = DIRECTION[0] if action > DIRECT_FLAG else DIRECTION[action]
         could_turn, _, _ = self._sumo_util._could_turn(vehID, direction, future_speed)

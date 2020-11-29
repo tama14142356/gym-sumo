@@ -102,13 +102,12 @@ class SumoUtil:
             next_edgeID = net.get_next_edgeID(cur_edgeID, direction, cur_lane_index)
             if next_edgeID == "":
                 return [], ""
-            to_lane_index, to_laneID = net.get_next_to_lane(
+            to_lane_index, next_laneID = net.get_next_to_lane(
                 cur_edgeID, next_edgeID, cur_lane_index
             )
             via_laneID = net.get_via_laneID(
                 cur_edgeID, next_edgeID, cur_lane_index, to_lane_index
             )
-            next_laneID = net.get_laneID(next_edgeID, to_lane_index)
             reach_laneIDs.append(next_laneID)
             road_length += self.traci_connect.lane.getLength(via_laneID)
             road_length += self.traci_connect.lane.getLength(next_laneID)
@@ -200,6 +199,9 @@ class SumoUtil:
         could_reach, cur_laneID = self._could_reach_junction(vehID, speed)
         if not could_reach or cur_laneID == "":
             return is_along_route, "", []
+        target_edgeID = self.get_target(vehID)
+        if target_edgeID == self.traci_connect.lane.getEdgeID(cur_laneID):
+            return True, "", []
         is_over, reach_laneIDs, to_laneID = self._is_over_turn(vehID, direction, speed)
         if is_over:
             return False, "", []
@@ -223,7 +225,7 @@ class SumoUtil:
         could_turn, next_edgeID, reach_edgeIDs = turn_info
         if not could_turn:
             return False
-        # not reach next junction, but, will move along direction
+        # not reach next junction, but, will move along direction or arrive target
         if next_edgeID == "":
             return True
         # move indirectly
