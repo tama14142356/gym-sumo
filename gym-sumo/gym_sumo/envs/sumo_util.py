@@ -254,7 +254,11 @@ class SumoUtil:
             travel_time += self.traci_connect.lane.getTraveltime(laneID)
             if i < num - 1:
                 next_edgeID = route[i + 1]
-                via_laneID = self._network.get_via_laneID(edgeID, next_edgeID, 0)
+                lane_num = self.traci_connect.edge.getLaneNumber(edgeID)
+                for i in range(lane_num):
+                    via_laneID = self._network.get_via_laneID(edgeID, next_edgeID, i)
+                    if via_laneID != "":
+                        break
                 length += self.traci_connect.lane.getLength(via_laneID)
                 travel_time += self.traci_connect.lane.getTraveltime(via_laneID)
         del route

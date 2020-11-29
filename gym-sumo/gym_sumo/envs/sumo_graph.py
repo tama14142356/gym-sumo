@@ -148,7 +148,7 @@ class SumoGraph:
             return [c for c in tmp if c.getToLane().getIndex() == to_lane_index]
         return conn
 
-    def get_next_edge_info(
+    def get_next_edge_info_all(
         self, cur_edgeID, next_edgeID, cur_lane_index=-1, to_lane_index=-1
     ):
         conn_info = self._get_next_edge_info(
@@ -156,18 +156,40 @@ class SumoGraph:
         )
         next_info = [""] * 8
         if len(conn_info) <= 0:
-            return next_info
-        next_info[0] = conn_info[0].getDirection()
-        from_lane_obj = conn_info[0].getFromLane()
-        next_info[1] = from_lane_obj.getEdge().getID()
-        next_info[2] = from_lane_obj.getID()
-        next_info[3] = str(from_lane_obj.getIndex())
-        next_info[4] = conn_info[0].getViaLaneID()
-        to_lane_obj = conn_info[0].getToLane()
-        next_info[5] = to_lane_obj.getEdge().getID()
-        next_info[6] = to_lane_obj.getID()
-        next_info[7] = str(to_lane_obj.getIndex())
-        return next_info
+            return [next_info]
+        next_info_list = []
+        for connection_obj in conn_info:
+            next_info = [""] * 8
+            next_info[0] = connection_obj.getDirection()
+            from_lane_obj = connection_obj.getFromLane()
+            next_info[1] = from_lane_obj.getEdge().getID()
+            next_info[2] = from_lane_obj.getID()
+            next_info[3] = str(from_lane_obj.getIndex())
+            next_info[4] = connection_obj.getViaLaneID()
+            to_lane_obj = connection_obj.getToLane()
+            next_info[5] = to_lane_obj.getEdge().getID()
+            next_info[6] = to_lane_obj.getID()
+            next_info[7] = str(to_lane_obj.getIndex())
+            next_info_list.append(next_info)
+        return next_info_list
+
+    def get_next_edge_info(
+        self, cur_edgeID, next_edgeID, cur_lane_index=-1, to_lane_index=-1
+    ):
+        if cur_lane_index < 0 and to_lane_index < 0:
+            print("please use get_next_edge_all or, please set cur_lane or to_lane")
+            return [""] * 8
+        next_info_list = self.get_next_edge_info_all(
+            cur_edgeID, next_edgeID, cur_lane_index, to_lane_index
+        )
+        if cur_lane_index >= 0 and to_lane_index >= 0:
+            return next_info_list[0]
+        for next_info in next_info_list:
+            is_cur = int(next_info[3]) == cur_lane_index
+            is_to = int(next_info[7]) == to_lane_index
+            if is_cur or is_to:
+                return next_info
+        return [""] * 8
 
     def get_next_direction(
         self, cur_edgeID, next_edgeID, cur_lane_index=0, to_lane_index=-1
@@ -223,8 +245,15 @@ class SumoGraph:
             map(lambda key: from_edge_dict[key][0].getDirection(), from_edge_dict)
         )
 
-    def get_from_edge_info(
+    def get_from_edge_info_all(
         self, cur_edgeID, from_edgeID, cur_lane_index=-1, from_lane_index=-1
+    ):
+        return self.get_next_edge_info_all(
+            from_edgeID, cur_edgeID, from_lane_index, cur_lane_index
+        )
+
+    def get_from_edge_info(
+        self, cur_edgeID, from_edgeID, cur_lane_index=0, from_lane_index=-1
     ):
         return self.get_next_edge_info(
             from_edgeID, cur_edgeID, from_lane_index, cur_lane_index
