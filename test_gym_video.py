@@ -20,8 +20,8 @@ kwargs = {
     "step_length": 1,
     "mode": "gui",
     "carnum": 1,
-    "seed": 2,
-    "debug_view": True,
+    "seed": 5,
+    # "debug_view": True,
 }
 
 env = gym.make("sumo-light-v0", **kwargs)
