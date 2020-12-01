@@ -4,7 +4,6 @@ from gym.utils import seeding
 
 import os
 import sys
-import copy
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import tempfile
@@ -254,7 +253,7 @@ class SumoBaseEnv(gym.Env):
         self.traci_connect.simulationStep()
         self._reset_simulate_time()
 
-    def _add_car(self, index, vehID="", is_create_route=True):
+    def _add_car(self, index, vehID="", is_create_route=True, is_fix_target=False):
         if len(vehID) <= 0:
             vehID = "veh{}".format(index)
         else:
@@ -262,12 +261,18 @@ class SumoBaseEnv(gym.Env):
         routeID = "route{}".format(index)
         route_list = self.traci_connect.route.getIDList()
         if is_create_route or routeID not in route_list:
-            routeID, start_end_edge = self._generate_route(index)
-            start_edgeID, goal_edgeID = start_end_edge
+            routeID, route, route_info = self._generate_route(index)
+            start_edgeID, goal_edgeID = route[0], route[len(route) - 1]
             self._start_edge_list.append(self._network.get_edge_index(start_edgeID))
         else:
             route = self.traci_connect.route.getEdges(routeID)
+            index = len(route_list) + index
+            goal_edgeID = route[len(route) - 1]
+            if is_fix_target:
+                routeID, route, route_info = self._generate_route(index, goal_edgeID)
             start_edgeID, goal_edgeID = route[0], route[len(route) - 1]
+        self.traci_connect.route.add(routeID, route)
+        self._route_list[routeID] = route_info
         veh_element = {"route": routeID, "start": start_edgeID, "goal": goal_edgeID}
         self._vehID_list[vehID] = veh_element
         self._reset_goal_element(vehID, goal_edgeID)
@@ -289,47 +294,58 @@ class SumoBaseEnv(gym.Env):
         self._vehID_list.clear()
         self._removed_vehID_list.clear()
         self._arrived_vehID_list.clear()
-        self._route_list.clear()
         self._goal.clear()
         for i in range(self._carnum):
             vehID = "veh{}".format(i)
             if vehID in v_list:
                 self.traci_connect.vehicle.remove(vehID, tc.REMOVE_TELEPORT)
                 self.traci_connect.simulationStep()
-            self._add_car(i, vehID, is_create_route=False)
+            self._add_car(i, vehID, is_create_route=False, is_fix_target=True)
 
         self.traci_connect.simulationStep()
         self._reset_simulate_time()
 
-    def _generate_route(self, index):
+    def _generate_route(self, index, to_edgeID=""):
         exclude_list = []
         routeID = "route{}".format(index)
         is_infinite, is_find = (index == 0), False
         find_num, max_find_num = 0, 10
+        routeID_list = self.traci_connect.route.getIDList()
+        route_num = len(routeID_list)
         while not is_find:
-            if not is_infinite and find_num >= max_find_num:
-                other_index = self.np_random.randint(0, index)
-                other_routeID = "route{}".format(other_index)
+            if not is_infinite and find_num >= max_find_num and route_num > 0:
+                other_routeID = self.np_random.choice(routeID_list)
+                if to_edgeID != "":
+                    tmp_list = self._sumo_util.get_routeID_list_from_target(to_edgeID)
+                    if other_routeID not in tmp_list and len(tmp_list) > 0:
+                        other_routeID = self.np_random.choice(tmp_list)
                 route = self.traci_connect.route.getEdges(other_routeID)
-                route_info = copy.deepcopy(self._route_list[other_routeID])
+                route_info = self._sumo_util._get_route_info(
+                    routeID=other_routeID, route_info_list=self._route_list
+                )
                 break
-            find_route_info = self._find_route(routeID, exclude_list)
+            find_route_info = self._find_route(routeID, exclude_list, to_edgeID)
             is_find, exclude, route_info, route = find_route_info
             if exclude not in exclude_list:
                 exclude_list.append(exclude)
             find_num += 1
-        start_end_edge = [route[0], route[len(route) - 1]]
-        self.traci_connect.route.add(routeID, route)
-        self._route_list[routeID] = route_info
-        return routeID, start_end_edge
+        return routeID, route, route_info
 
-    def _find_route(self, routeID, exclude=[]):
+    def _find_route(self, routeID, exclude=[], to_edgeID=""):
         num_edge = self._graph.get_num("edge_normal") - 1
-        edges = random_tuple(
-            0, num_edge, 2, self._start_edge_list, exclude, self.np_random
-        )
-        from_edgeID = self._network.get_edgeID(edges[0])
-        to_edgeID = self._network.get_edgeID(edges[1])
+        if to_edgeID == "":
+            edges = random_tuple(
+                0, num_edge, 2, self._start_edge_list, exclude, self.np_random
+            )
+            from_edgeID = self._network.get_edgeID(edges[0])
+            to_edgeID = self._network.get_edgeID(edges[1])
+        else:
+            to_edge_index = self._network.get_edge_index(to_edgeID)
+            from_edge_index = random_tuple(
+                0, num_edge, 1, self._start_edge_list, exclude, self.np_random
+            )[0]
+            from_edgeID = self._network.get_edgeID(from_edge_index)
+            edges = (from_edge_index, to_edge_index)
         if edges in exclude:
             return False, edges, None, []
         route = self.traci_connect.simulation.findRoute(from_edgeID, to_edgeID)
@@ -368,7 +384,11 @@ class SumoBaseEnv(gym.Env):
         action_text += "(" + str(action) + ")"
         sim_time_tx = "simulation time: " + str(self.traci_connect.simulation.getTime())
         step_tx = "current step: " + ("0.0" if is_reset else str(self._get_cur_step()))
-        text = action_text + "\n" + sim_time_tx + "\n" + step_tx
+        goal_edgeID = ""
+        if vehID in self._vehID_list:
+            goal_edgeID = self._vehID_list[vehID].get("goal", "")
+        goal_text = "goal: " + goal_edgeID
+        text = action_text + "\n" + sim_time_tx + "\n" + step_tx + "\n" + goal_text
         if not is_take:
             text += "\nCRASH!!"
         elif vehID in self.traci_connect.simulation.getArrivedIDList():

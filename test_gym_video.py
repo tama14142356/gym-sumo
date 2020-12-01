@@ -20,7 +20,7 @@ kwargs = {
     "step_length": 1,
     "mode": "gui",
     "carnum": 1,
-    "seed": 5,
+    "seed": 3,
     # "debug_view": True,
 }
 
@@ -45,20 +45,21 @@ observation = env.reset()
 cur_sm_time = 0.0
 for i in range(1000):
     # env.render()
-    # action = env.action_space.sample()
-    action = 0
-    if i % 3 == 2:
-        action = 6
-    if kwargs["seed"] == 1:
-        action = action_seed_1.get(int(cur_sm_time), action)
-    if kwargs["seed"] == 2:
-        action = action_seed_2.get(i, action)
-    if kwargs["seed"] == 4:
-        action = action_seed_1.get(i, action)
-    if kwargs["seed"] == 5:
-        action = action_seed_5.get(i, action)
+    action = env.action_space.sample()
+    # action = 0
+    # if i % 3 == 2:
+    #     action = 6
+    # if kwargs["seed"] == 1:
+    #     action = action_seed_1.get(int(cur_sm_time), action)
+    # if kwargs["seed"] == 2:
+    #     action = action_seed_2.get(i, action)
+    # if kwargs["seed"] == 4:
+    #     action = action_seed_1.get(i, action)
+    # if kwargs["seed"] == 5:
+    #     action = action_seed_5.get(i, action)
     observation, reward, done, info = env.step(action)
-    print(i, reward, done, action, info)
+    print(reward, done, action)
+    # print(i, reward, done, action, info)
     if done:
         observation = env.reset()
     cur_sm_time = info.get("cur_sm_step", 0.0)
