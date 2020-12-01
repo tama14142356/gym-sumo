@@ -323,7 +323,7 @@ class SumoBaseEnv(gym.Env):
             if not is_infinite and find_num >= max_find_num and routeID_num > 0:
                 other_routeID = self.np_random.choice(routeID_list)
                 route = self.traci_connect.route.getEdges(other_routeID)
-                route_info = self._sumo_util.get_route_info(
+                route_info = self._sumo_util._get_route_info(
                     routeID=other_routeID, route_info_list=self._route_list
                 )
                 break
