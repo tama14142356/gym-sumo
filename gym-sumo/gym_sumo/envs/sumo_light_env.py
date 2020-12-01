@@ -31,6 +31,7 @@ class SumoLightEnv(BaseEnv):
         isgraph=True,
         area=0,
         carnum=100,
+        rl_carnum=1,
         mode="gui",
         step_length=0.01,
         simulation_end=200,
@@ -42,6 +43,7 @@ class SumoLightEnv(BaseEnv):
             isgraph,
             area,
             carnum,
+            rl_carnum,
             mode,
             step_length,
             simulation_end,
@@ -110,13 +112,6 @@ class SumoLightEnv(BaseEnv):
     def reset(self):
         self._reposition_car()
         vehID = list(self._vehID_list)[0]
-        if self._mode == "gui":
-            viewID = self.traci_connect.gui.DEFAULT_VIEW
-            # self.traci_connect.gui.trackVehicle(viewID, vehID)
-            # zoom = self.traci_connect.gui.getZoom()
-            self.traci_connect.gui.setZoom(viewID, 1000)
-            self.screenshot_and_simulation_step()
-            self._reset_simulate_time()
         observation = self._observation(vehID)
         return observation
 
