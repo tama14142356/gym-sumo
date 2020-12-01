@@ -97,11 +97,10 @@ class SumoLightEnv(BaseEnv):
                 cur_driving_len = self.traci_connect.vehicle.getDistance(vehID)
                 routeID = self._vehID_list[vehID]["route"]
                 total_length = self._route_list[routeID]["length"]
-                to_goal_length = cur_driving_len - total_length
+                to_goal_length = cur_driving_len - total_length + 1000.0
                 info["driving_len"] = cur_driving_len
                 reward += info["speed"]
-                reward += to_goal_length if total_length > 0 else -1000.0
-
+                reward += to_goal_length if total_length > 0 else 0.0
         done = self._is_done(vehID)
         observation = self._observation(vehID, done, info["is_arrived"])
         return observation, reward, done, info
