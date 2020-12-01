@@ -57,6 +57,9 @@ class SumoLightEnv(BaseEnv):
         )
 
     def step(self, action, vehID=""):
+        pos = self.traci_connect.vehicle.getPosition(vehID)
+        goal_pos = self._goal[vehID].get("pos", [0.0, 0.0])
+        pre_to_goal_length = self._graph._calc_distance(pos, goal_pos)
         # determine next step action, affect environment
         if len(vehID) <= 0:
             vehID = list(self._vehID_list)[0]
@@ -94,13 +97,12 @@ class SumoLightEnv(BaseEnv):
                 reward += 100.0
             else:
                 # progress bonus
-                cur_driving_len = self.traci_connect.vehicle.getDistance(vehID)
-                routeID = self._vehID_list[vehID]["route"]
-                total_length = self._route_list[routeID]["length"]
-                to_goal_length = cur_driving_len - total_length + 1000.0
-                info["driving_len"] = cur_driving_len
-                reward += info["speed"]
-                reward += to_goal_length / 100 if total_length > 0 else 0.0
+                to_goal_length = self._graph._calc_distance(
+                    info["pos"], self._goal[vehID]["pos"]
+                )
+                # reward += info["speed"]
+                dense_reward = pre_to_goal_length - to_goal_length
+                reward += 0.01 * dense_reward
         done = self._is_done(vehID)
         observation = self._observation(vehID, done, info["is_arrived"])
         return observation, reward, done, info
