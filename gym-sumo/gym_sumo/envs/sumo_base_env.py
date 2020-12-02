@@ -4,12 +4,11 @@ from gym.utils import seeding
 
 import os
 import sys
-import copy
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import tempfile
 
-from IPython import embed  # for debug
+# from IPython import embed  # for debug
 
 from ._graph import Graph
 from ._util import random_tuple, get_base_vector, string_extract_int
@@ -139,7 +138,7 @@ class SumoBaseEnv(gym.Env):
         try:
             self.traci_connect.close()
             sys.stdout.flush()
-        except traci.exceptions.FatalTraCIError as ci:
+        except self.traci_connect.exceptions.FatalTraCIError as ci:
             print(ci)
 
     def seed(self, seed=None):
