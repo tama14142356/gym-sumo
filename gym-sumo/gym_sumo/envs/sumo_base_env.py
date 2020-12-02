@@ -137,7 +137,7 @@ class SumoBaseEnv(gym.Env):
         try:
             self.traci_connect.close()
             sys.stdout.flush()
-        except traci.exceptions.FatalTraCIError as ci:
+        except self.traci_connect.exceptions.FatalTraCIError as ci:
             print(ci)
 
     def seed(self, seed=None):
