@@ -55,6 +55,7 @@ class SumoLightEnv(BaseEnv):
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf, dtype=np.float32, shape=(12,)
         )
+        self.is_init = True
 
     def step(self, action, vehID=""):
         # determine next step action, affect environment
@@ -108,7 +109,9 @@ class SumoLightEnv(BaseEnv):
         return observation, reward, done, info
 
     def reset(self):
-        self._reposition_car()
+        if not self.is_init:
+            self._reposition_car()
+        self.is_init = False
         vehID = list(self._vehID_list)[0]
         if self._mode == "gui":
             viewID = self.traci_connect.gui.DEFAULT_VIEW
@@ -160,7 +163,7 @@ class SumoLightEnv(BaseEnv):
         directions = [self._sumo_util._get_direction_along_route(vehID)]
         if could_reach:
             cur_edgeID = self.traci_connect.lane.getEdgeID(cur_laneID)
-            cur_lane_index = cur_laneID.replace(cur_edgeID, "")[1:]
+            cur_lane_index = self._network.get_lane_index(cur_laneID)
             directions = self._network.get_next_directions(cur_edgeID, cur_lane_index)
         turn_direction = list(
             map(lambda direct: 1.0 if direct in directions else 0.0, DIRECTION)
