@@ -102,7 +102,7 @@ class SumoLightEnv(BaseEnv):
                 )
                 # reward += info["speed"]
                 dense_reward = pre_to_goal_length - to_goal_length
-                reward += 0.01 * dense_reward
+                reward += dense_reward
         done = self._is_done(vehID)
         observation = self._observation(vehID, done, info["is_arrived"])
         return observation, reward, done, info
