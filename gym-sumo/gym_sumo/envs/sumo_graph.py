@@ -35,6 +35,38 @@ class SumoGraph:
             return None
         return self.network.getEdge(edgeID)
 
+    def get_road_length(self, edgeID="", laneID=""):
+        edge_obj = self.get_edge_obj(edgeID)
+        if edge_obj is None:
+            lane_obj = self.network.getLane(laneID)
+            edge_obj = lane_obj.getEdge()
+        return edge_obj.getLength()
+
+    def get_road_speed(self, edgeID="", laneID=""):
+        edge_obj = self.get_edge_obj(edgeID)
+        if edge_obj is None:
+            lane_obj = self.network.getLane(laneID)
+            edge_obj = lane_obj.getEdge()
+        return edge_obj.getSpeed()
+
+    def get_road_travel_time(self, edgeID="", laneID=""):
+        speed = self.get_road_speed(edgeID, laneID)
+        length = self.get_road_length(edgeID, laneID)
+        travel_time = length / speed
+        return travel_time
+
+    def get_laneIDs(self, edgeID):
+        edge_obj = self.get_edge_obj(edgeID)
+        if edge_obj is None:
+            return []
+        return [lane_obj.getID() for lane_obj in edge_obj.getLanes()]
+
+    def get_lane_number(self, edgeID):
+        edge_obj = self.get_edge_obj(edgeID)
+        if edge_obj is None:
+            return -1
+        return edge_obj.getLaneNumber()
+
     def get_edgeID(self, edge_index, is_normal=True):
         all_edgeID_list = self.get_all_edgeID_list((not is_normal))
         edge_num = len(all_edgeID_list)

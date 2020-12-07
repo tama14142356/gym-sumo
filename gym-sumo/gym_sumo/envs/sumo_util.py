@@ -248,6 +248,7 @@ class SumoUtil:
         return True
 
     def _get_route_info(self, vehID="", routeID="", route_edges=[], route_info_list={}):
+        route = []
         if len(route_edges) > 0:
             route = copy.deepcopy(route_edges)
         if len(routeID) > 0:
@@ -259,19 +260,18 @@ class SumoUtil:
         travel_time, length = 0.0, 0.0
         num = len(route)
         for i, edgeID in enumerate(route):
-            laneID = edgeID + "_0"
-            length += self.traci_connect.lane.getLength(laneID)
+            length += self._network.get_road_length(edgeID)
             # travel_time = length / max_speed on the laneID(traci.lane.getMaxSpeed())
-            travel_time += self.traci_connect.lane.getTraveltime(laneID)
+            travel_time += self._network.get_road_travel_time(edgeID)
             if i < num - 1:
                 next_edgeID = route[i + 1]
-                lane_num = self.traci_connect.edge.getLaneNumber(edgeID)
+                lane_num = self._network.get_lane_number(edgeID)
                 for i in range(lane_num):
                     via_laneID = self._network.get_via_laneID(edgeID, next_edgeID, i)
                     if via_laneID != "":
                         break
-                length += self.traci_connect.lane.getLength(via_laneID)
-                travel_time += self.traci_connect.lane.getTraveltime(via_laneID)
+                length += self._network.get_road_length(laneID=via_laneID)
+                travel_time += self._network.get_road_travel_time(laneID=via_laneID)
         del route
         route_info = {"length": length, "travel_time": travel_time, "cost": travel_time}
         return route_info

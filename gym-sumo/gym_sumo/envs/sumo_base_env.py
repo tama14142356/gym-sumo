@@ -349,9 +349,9 @@ class SumoBaseEnv(gym.Env):
         if edges in exclude:
             return False, edges, None, []
         route = self.traci_connect.simulation.findRoute(from_edgeID, to_edgeID)
-        total_length, travel_time, cost = route.length, route.travelTime, route.cost
-        route_info = {"length": total_length, "travel_time": travel_time, "cost": cost}
-        is_find = len(route.edges) > 0 and total_length <= MAX_LENGTH
+        route_info = self._sumo_util._get_route_info(route_edges=route.edges)
+        length = route_info.get("length", MAX_LENGTH + 1)
+        is_find = len(route.edges) > 0 and length <= MAX_LENGTH
         return is_find, edges, route_info, route.edges
 
     def screenshot_and_simulation_step(self, action=-1, vehID="", is_take=True):
