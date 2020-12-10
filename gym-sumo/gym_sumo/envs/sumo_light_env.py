@@ -61,25 +61,33 @@ class SumoLightEnv(BaseEnv):
         # determine next step action, affect environment
         if len(vehID) <= 0:
             vehID = list(self._vehID_list)[0]
-        pos = self.traci_connect.vehicle.getPosition(vehID)
+        v_list = self.traci_connect.vehicle.getIDList()
+        pos = (-1.0, -1.0)
+        cur_edgeID = ""
+        if vehID in v_list:
+            pos = self.traci_connect.vehicle.getPosition(vehID)
+            cur_edgeID = self.traci_connect.vehicle.getRoadID(vehID)
         goal_pos = self._goal[vehID].get("pos", [0.0, 0.0])
         pre_to_goal_length = self._graph._calc_distance(pos, goal_pos)
         is_take = self._take_action(vehID, action)
         if self._mode == "gui":
-            self.screenshot_and_simulation_step(action, vehID, is_take)
+            self.screenshot_and_simulation_step(action)
         else:
             self.traci_connect.simulationStep()
 
         removed_list = self._removed_vehID_list
         acheived_list = self.traci_connect.simulation.getArrivedIDList()
+        is_arrived = (
+            vehID in acheived_list and cur_edgeID == self._vehID_list[vehID]["goal"]
+        )
 
         info = INFO.copy()
         info["is_take"] = is_take
-        info["is_removed"] = vehID in removed_list
+        info["is_removed"] = vehID in removed_list or vehID in acheived_list
         info["cur_step"] = self._get_cur_step()
         info["cur_sm_step"] = self.traci_connect.simulation.getTime()
-        info["is_arrived"] = vehID in acheived_list and not info["is_removed"]
-        info["needs_reset"] = info["is_removed"] or info["is_arrived"]
+        info["is_arrived"] = is_arrived
+        info["needs_reset"] = info["is_removed"]
         info["goal"] = self._vehID_list[vehID]["goal"]
 
         if not info["needs_reset"]:
@@ -92,10 +100,9 @@ class SumoLightEnv(BaseEnv):
         # calculate reward
         reward = 0.0
         if vehID not in removed_list:
-            if vehID in acheived_list:
+            if info["is_removed"]:
                 self._removed_vehID_list.append(vehID)
-                self._arrived_vehID_list.append(vehID)
-                reward += 100.0
+                reward += 100.0 if is_arrived else 0.0
             else:
                 # progress bonus
                 to_goal_length = self._graph._calc_distance(
@@ -103,9 +110,9 @@ class SumoLightEnv(BaseEnv):
                 )
                 # reward += info["speed"]
                 dense_reward = pre_to_goal_length - to_goal_length
-                reward += dense_reward
-        done = self._is_done(vehID)
-        observation = self._observation(vehID, done, info["is_arrived"])
+                reward += dense_reward * 0.01
+        done = self._is_done(vehID) or info["needs_reset"]
+        observation = self._observation(vehID, done, is_arrived)
         return observation, reward, done, info
 
     def reset(self):
@@ -177,7 +184,7 @@ class SumoLightEnv(BaseEnv):
         v_list = self.traci_connect.vehicle.getIDList()
         removed_list = self._removed_vehID_list
         if vehID not in v_list or vehID in removed_list:
-            self._remove_car_if_necessary(vehID, (not is_take))
+            self._remove_car_if_necessary(vehID, True)
             return False
         future_speed = -1.0
         if action > DIRECT_FLAG:
@@ -192,14 +199,16 @@ class SumoLightEnv(BaseEnv):
             future_speed = future_speed if is_take else 0.0
             self.traci_connect.vehicle.setSpeed(vehID, future_speed)
             if not is_take:
-                self._remove_car_if_necessary(vehID, (not is_take))
+                self._remove_car_if_necessary(vehID, False)
                 return False
-        direction = DIRECTION[0] if action > DIRECT_FLAG else DIRECTION[action]
+        next_wand_turn = self._vehID_list[vehID].get("want_turn_direct", DIRECTION[0])
+        direction = next_wand_turn if action > DIRECT_FLAG else DIRECTION[action]
+        self._vehID_list[vehID]["want_turn_direct"] = direction
         could_turn, _, _ = self._sumo_util._could_turn(vehID, direction, future_speed)
         is_take = could_turn
         if could_turn:
             self._sumo_util.turn(vehID, direction, future_speed)
-            self._reset_goal_element(vehID)
+            # self._reset_goal_element(vehID)
             self._reset_routeID(vehID)
-        self._remove_car_if_necessary(vehID, (not is_take))
+        self._remove_car_if_necessary(vehID, False)
         return is_take

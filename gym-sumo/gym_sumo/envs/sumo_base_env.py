@@ -119,7 +119,6 @@ class SumoBaseEnv(gym.Env):
         self._vehID_list = {}
         self._goal = {}
         self._removed_vehID_list = []
-        self._arrived_vehID_list = []
         self._start_edge_list = []
         self.seed(seed)
         self._graph = Graph(self._netpath)
@@ -286,6 +285,7 @@ class SumoBaseEnv(gym.Env):
         self._vehID_list[vehID]["start_pos"] = list(start_pos)
         is_load = vehID in self.traci_connect.vehicle.getIDList()
         self._vehID_list[vehID]["is_load"] = is_load
+        self._vehID_list[vehID]["want_turn_direct"] = DIRECTION[STRAIGHT]
         self._reset_simulate_time()
 
     def _reposition_car(self):
@@ -293,7 +293,6 @@ class SumoBaseEnv(gym.Env):
         v_list = self.traci_connect.vehicle.getIDList()
         self._vehID_list.clear()
         self._removed_vehID_list.clear()
-        self._arrived_vehID_list.clear()
         self._goal.clear()
         for i in range(self._carnum):
             vehID = "veh{}".format(i)
@@ -354,19 +353,27 @@ class SumoBaseEnv(gym.Env):
         is_find = len(route.edges) > 0 and length <= MAX_LENGTH
         return is_find, edges, route_info, route.edges
 
-    def screenshot_and_simulation_step(self, action=-1, vehID="", is_take=True):
+    def screenshot_and_simulation_step(self, action=-1, vehID=""):
         with tempfile.TemporaryDirectory() as tmpdir:
             viewID = self.traci_connect.gui.DEFAULT_VIEW
             if len(vehID) <= 0:
                 vehID = list(self._vehID_list)[0]
             # gui.trackVehicleの代わり
             x, y = self.traci_connect.gui.getOffset()
+            cur_edgeID = ""
             if vehID in self.traci_connect.vehicle.getIDList():
                 x, y = self.traci_connect.vehicle.getPosition(vehID)
+                cur_edgeID = self.traci_connect.vehicle.getRoadID(vehID)
             self.traci_connect.gui.setOffset(viewID, x, y)
             img_path = tmpdir + "/screenshot.png"
             self.traci_connect.gui.screenshot(viewID, img_path)
             self.traci_connect.simulationStep()
+            removed_list = self._removed_vehID_list
+            acheived_list = self.traci_connect.simulation.getArrivedIDList()
+            is_arrived = (
+                vehID in acheived_list and cur_edgeID == self._vehID_list[vehID]["goal"]
+            )
+            is_removed = vehID in removed_list or vehID in acheived_list
             with open(img_path, "rb") as f:
                 img = Image.open(f).convert("RGB")
                 # get a font
@@ -374,11 +381,11 @@ class SumoBaseEnv(gym.Env):
                 # get a drawing context
                 d = ImageDraw.Draw(img)
                 # draw multiline text
-                text = self.create_render_text(action, vehID, is_take)
+                text = self.create_render_text(action, vehID, is_removed, is_arrived)
                 d.multiline_text((10, 10), text, font=fnt, fill=(255, 0, 0))
                 self.np_img = np.array(img)
 
-    def create_render_text(self, action, vehID, is_take):
+    def create_render_text(self, action, vehID, is_removed, is_arrived):
         is_reset = action < 0
         action_text = "action: " + ("RESET" if is_reset else self.action_text[action])
         action_text += "(" + str(action) + ")"
@@ -389,8 +396,10 @@ class SumoBaseEnv(gym.Env):
             goal_edgeID = self._vehID_list[vehID].get("goal", "")
         goal_text = "goal: " + goal_edgeID
         text = action_text + "\n" + sim_time_tx + "\n" + step_tx + "\n" + goal_text
-        if not is_take:
+        if is_removed:
             text += "\nCRASH!!"
-        elif vehID in self.traci_connect.simulation.getArrivedIDList():
+        elif is_arrived:
             text += "\nARRIVED!!"
+        elif self._is_done(vehID):
+            text += "\nTIME OVER"
         return text
