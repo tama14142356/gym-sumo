@@ -204,10 +204,14 @@ class SumoLightEnv(BaseEnv):
         next_wand_turn = self._vehID_list[vehID].get("want_turn_direct", DIRECTION[0])
         direction = next_wand_turn if action > DIRECT_FLAG else DIRECTION[action]
         self._vehID_list[vehID]["want_turn_direct"] = direction
-        could_turn, _, _ = self._sumo_util._could_turn(vehID, direction, future_speed)
+        could_turn, _, _ = self._sumo_util._could_turn(
+            vehID, self._vehID_list[vehID], direction, future_speed
+        )
         is_take = could_turn
         if could_turn:
-            self._sumo_util.turn(vehID, direction, future_speed)
+            self._sumo_util.turn(
+                vehID, self._vehID_list[vehID], direction, future_speed
+            )
             # self._reset_goal_element(vehID)
             self._reset_routeID(vehID)
         self._remove_car_if_necessary(vehID, False)

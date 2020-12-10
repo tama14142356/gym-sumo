@@ -26,7 +26,9 @@ kwargs = {
 }
 
 env = gym.make("sumo-light-v0", **kwargs)
-env = gym.wrappers.Monitor(env, "./video", force=True)
+env = gym.wrappers.Monitor(
+    env, "./video", force=True, video_callable=(lambda e: e % 1 == 0)
+)
 action_seed_1 = {18: STRAIGHT, 19: LEFT, 20: LEFT, 22: LEFT}
 action_seed_2 = {9: UTURN, 10: UTURN}
 for i in range(11, 19):
@@ -44,12 +46,13 @@ for i in range(76, 81):
 done = False
 observation = env.reset()
 cur_sm_time = 0.0
+step_offset = 0
 for i in range(1000):
     # env.render()
-    # action = env.action_space.sample()
-    action = 0
-    if i % 3 == 2:
-        action = 6
+    action = env.action_space.sample()
+    # action = 0
+    # if i % 3 == 2:
+    #     action = 6
     # if kwargs["seed"] == 1:
     #     action = action_seed_1.get(int(cur_sm_time), action)
     # if kwargs["seed"] == 2:
@@ -58,19 +61,20 @@ for i in range(1000):
     #     action = action_seed_1.get(i, action)
     # if kwargs["seed"] == 5:
     #     action = action_seed_5.get(i, action)
-    turn_direction = observation[4:10]
-    directions = []
-    for i, turn in enumerate(turn_direction):
-        if turn == 1:
-            directions.append(i)
-    if len(directions) > 0:
-        action_candidate = env.np_random.choice(np.array(directions))
-        if action_candidate != STRAIGHT:
-            action = action_candidate
+    # turn_direction = observation[4:10]
+    # directions = []
+    # for i, turn in enumerate(turn_direction):
+    #     if turn == 1:
+    #         directions.append(i)
+    # if len(directions) > 0:
+    #     action_candidate = env.np_random.choice(np.array(directions))
+    #     if action_candidate != STRAIGHT:
+    #         action = action_candidate
     observation, reward, done, info = env.step(action)
-    print(reward, done, action)
+    print((i - step_offset), reward, done, action)
     # print(i, reward, done, action, info)
     if done:
+        step_offset = i + 1
         observation = env.reset()
     cur_sm_time = info.get("cur_sm_step", 0.0)
 

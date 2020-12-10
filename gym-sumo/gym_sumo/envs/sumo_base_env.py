@@ -172,11 +172,7 @@ class SumoBaseEnv(gym.Env):
         vector = get_base_vector(start_or_mid_pos, end_pos)
         return vector, end_pos
 
-    def _reset_goal_element(self, vehID="", goal_edgeID=""):
-        if len(vehID) <= 0:
-            vehID = list(self._vehID_list)[0]
-        if len(goal_edgeID) <= 0:
-            goal_edgeID = self._sumo_util.get_target(vehID)
+    def _reset_goal_element(self, vehID, goal_edgeID):
         self._vehID_list[vehID]["goal"] = goal_edgeID
         goal_element = {}
         vector, pos = self._get_vector_pos_edgeID(goal_edgeID)

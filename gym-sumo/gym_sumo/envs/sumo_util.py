@@ -187,11 +187,12 @@ class SumoUtil:
         future_lane_pos = self.get_future_lane_pos(vehID, speed)
         return future_lane_pos > road_length, cur_laneID
 
-    def _could_turn(self, vehID, direction, speed=-1.0):
+    def _could_turn(self, vehID, veh_info, direction, speed=-1.0):
         """whether vehicle could turn to the direction
 
         Args:
             vehID (str): vehicle id
+            veh_info (dict): vehicle information
             direction (str): the direction which vehicle will turn to
             speed (float, optional): vehicle speed
                                      Defaults to -1.0 means not use this speed
@@ -208,7 +209,7 @@ class SumoUtil:
         could_reach, cur_laneID = self._could_reach_junction(vehID, speed)
         if not could_reach or cur_laneID == "":
             return is_along_route, "", []
-        target_edgeID = self.get_target(vehID)
+        target_edgeID = veh_info.get("goal", "")
         if target_edgeID == self.traci_connect.lane.getEdgeID(cur_laneID):
             return True, "", []
         is_over, reach_laneIDs, to_laneID = self._is_over_turn(vehID, direction, speed)
@@ -218,11 +219,12 @@ class SumoUtil:
         reach_edgeIDs = list(map(self.traci_connect.lane.getEdgeID, reach_laneIDs))
         return True, to_edgeID, reach_edgeIDs
 
-    def turn(self, vehID, direction, speed=-1.0):
+    def turn(self, vehID, veh_info, direction, speed=-1.0):
         """turn to the direction
 
         Args:
             vehID (str): vehicle id
+            veh_info (dict): vehicle information
             direction (str): the direction which vehicle will turn to
             speed (float, optional): vehicle speed
                                      Defaults to -1.0 means not use this speed
@@ -230,7 +232,7 @@ class SumoUtil:
         Returns:
             bool: whether vehicle could turn
         """
-        turn_info = self._could_turn(vehID, direction, speed)
+        turn_info = self._could_turn(vehID, veh_info, direction, speed)
         could_turn, next_edgeID, reach_edgeIDs = turn_info
         if not could_turn:
             return False
@@ -238,7 +240,7 @@ class SumoUtil:
         if next_edgeID == "":
             return True
         # move indirectly
-        target_edgeID = self.get_target(vehID)
+        target_edgeID = veh_info.get("goal", "")
         new_route = self.traci_connect.simulation.findRoute(next_edgeID, target_edgeID)
         new_edge_list = reach_edgeIDs
         if len(new_route.edges) > 0:
