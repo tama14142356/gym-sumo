@@ -1,4 +1,3 @@
-import numpy as np
 import copy
 
 # from IPython import embed  # for debug
@@ -52,10 +51,6 @@ class SumoUtil:
         next_edgeID = route[route_index]
         return self._network.get_next_direction(cur_edgeID, next_edgeID, cur_lane_index)
 
-    def _is_along_route(self, vehID, direction):
-        along_route_direction = self._get_direction_along_route(vehID)
-        return along_route_direction == direction
-
     def _is_junction(self, vehID, edgeID=""):
         cur_edgeID = self.traci_connect.vehicle.getRoadID(vehID)
         if len(edgeID) > 0:
@@ -66,29 +61,6 @@ class SumoUtil:
         distance = self.traci_connect.vehicle.getDistance(vehID)
         return distance <= 0.0
 
-    # cur_laneIDが交差点の場合はnext_edgeIDは取得できるが、via_laneが空になる
-    # （自分だから）
-    # その場合は、自分自身の長さを返すことにする。
-    # その時、via_laneIDはからのまま返す
-    def get_via_length(self, cur_laneID, direction):
-        if cur_laneID == "":
-            return -1.0, "", ""
-        cur_edgeID = self.traci_connect.lane.getEdgeID(cur_laneID)
-        cur_lane_index = self._network.get_lane_index(cur_laneID)
-        next_edgeID = self._network.get_next_edgeID(
-            cur_edgeID, direction, cur_lane_index
-        )
-        if next_edgeID == "":
-            return -1.0, "", next_edgeID
-        via_laneID = self._network.get_via_laneID(
-            cur_edgeID, next_edgeID, cur_lane_index
-        )
-        laneID = cur_laneID if via_laneID == "" else via_laneID
-        _, to_laneID = self._network.get_next_to_lane(
-            cur_edgeID, next_edgeID, cur_lane_index
-        )
-        return self.traci_connect.lane.getLength(laneID), via_laneID, to_laneID
-
     def get_future_lane_pos(self, vehID, speed=-1.0):
         cur_lane_pos = self.traci_connect.vehicle.getLanePosition(vehID)
         cur_speed = (
@@ -97,10 +69,9 @@ class SumoUtil:
         future_lane_pos = cur_lane_pos + cur_speed * self._step_length
         return future_lane_pos
 
-    def get_could_reach_laneIDs_of_straight(self, vehID, speed=-1.0):
+    def get_could_reach_laneIDs(self, vehID, direction, speed=-1.0):
         net = self._network
         future_lane_pos = self.get_future_lane_pos(vehID, speed)
-        direction = self._direction_list[0]
         road_length, cur_laneID = self._current_road_length(vehID)
         if road_length >= future_lane_pos or cur_laneID == "":
             return [] if cur_laneID == "" else [cur_laneID], cur_laneID
@@ -109,8 +80,13 @@ class SumoUtil:
             cur_edgeID = self.traci_connect.lane.getEdgeID(cur_laneID)
             cur_lane_index = net.get_lane_index(cur_laneID)
             next_edgeID = net.get_next_edgeID(cur_edgeID, direction, cur_lane_index)
+            lane_num = net.get_lane_number(cur_edgeID)
             if next_edgeID == "":
-                return [], ""
+                for lane_index in range(lane_num):
+                    next_edgeID = net.get_next_edgeID(cur_edgeID, direction, lane_index)
+                    cur_lane_index = lane_index
+                if next_edgeID == "":
+                    return reach_laneIDs, ""
             to_lane_index, next_laneID = net.get_next_to_lane(
                 cur_edgeID, next_edgeID, cur_lane_index
             )
@@ -139,18 +115,10 @@ class SumoUtil:
                             next lane id where vehicle reach after turn direction
                             completely
         """
-        if direction == self._direction_list[0]:
-            reach_laneIDs, next_laneID = self.get_could_reach_laneIDs_of_straight(
-                vehID, speed
-            )
-            return len(reach_laneIDs) <= 0, reach_laneIDs, next_laneID
-        road_length, cur_laneID = self._current_road_length(vehID)
-        future_lane_pos = self.get_future_lane_pos(vehID, speed)
-        via_length, _, next_laneID = self.get_via_length(cur_laneID, direction)
-        if via_length < 0.0:
-            return True, [], ""
-        road_length += via_length
-        return future_lane_pos > road_length, [cur_laneID, next_laneID], next_laneID
+        reach_laneIDs, next_laneID = self.get_could_reach_laneIDs(
+            vehID, direction, speed
+        )
+        return next_laneID == "", reach_laneIDs
 
     def _current_road_length(self, vehID):
         """calculate length of current road from current road vehicle is on
@@ -182,11 +150,6 @@ class SumoUtil:
             road_length += self.traci_connect.lane.getLength(laneID)
         return road_length, cur_laneID
 
-    def _could_reach_junction(self, vehID, speed=-1.0):
-        road_length, cur_laneID = self._current_road_length(vehID)
-        future_lane_pos = self.get_future_lane_pos(vehID, speed)
-        return future_lane_pos > road_length, cur_laneID
-
     def _could_turn(self, vehID, veh_info, direction, speed=-1.0):
         """whether vehicle could turn to the direction
 
@@ -202,22 +165,31 @@ class SumoUtil:
                                next edge id which
                                if vehicle could turn, vehicle will reach
         """
-        is_along_route = self._is_along_route(vehID, direction)
         is_junction = self._is_junction(vehID)
-        if is_junction and not is_along_route:
-            return False, "", []
-        could_reach, cur_laneID = self._could_reach_junction(vehID, speed)
-        if not could_reach or cur_laneID == "":
-            return is_along_route, "", []
+        cur_edgeID = self.traci_connect.vehicle.getRoadID(vehID)
+        lane_index_list = []
+        if is_junction:
+            lane_index_list.append(self.traci_connect.vehicle.getLaneIndex(vehID))
+        else:
+            lane_num = self._network.get_lane_number(cur_edgeID)
+            lane_index_list = [index for index in range(lane_num)]
+        directions = []
+        cur_lane_index = -1
+        for lane_index in lane_index_list:
+            directions += self._network.get_next_directions(cur_edgeID, lane_index)
+            if direction in directions:
+                cur_lane_index = lane_index
+                break
         target_edgeID = veh_info.get("goal", "")
-        if target_edgeID == self.traci_connect.lane.getEdgeID(cur_laneID):
-            return True, "", []
-        is_over, reach_laneIDs, to_laneID = self._is_over_turn(vehID, direction, speed)
-        if is_over:
-            return False, "", []
-        to_edgeID = self.traci_connect.lane.getEdgeID(to_laneID)
-        reach_edgeIDs = list(map(self.traci_connect.lane.getEdgeID, reach_laneIDs))
-        return True, to_edgeID, reach_edgeIDs
+        # その方向に曲がれる道路が存在しない時
+        if cur_lane_index == -1:
+            return cur_edgeID == target_edgeID, []
+        is_over, reach_laneIDs = self._is_over_turn(vehID, direction, speed)
+        return (not is_over), reach_laneIDs
+
+    def could_turn(self, vehID, veh_info, direction, speed=-1.0):
+        could_turn, _ = self._could_turn(vehID, veh_info, direction, speed)
+        return could_turn
 
     def turn(self, vehID, veh_info, direction, speed=-1.0):
         """turn to the direction
@@ -232,22 +204,22 @@ class SumoUtil:
         Returns:
             bool: whether vehicle could turn
         """
-        turn_info = self._could_turn(vehID, veh_info, direction, speed)
-        could_turn, next_edgeID, reach_edgeIDs = turn_info
-        if not could_turn:
-            return False
-        # not reach next junction, but, will move along direction or arrive target
-        if next_edgeID == "":
-            return True
-        # move indirectly
-        target_edgeID = veh_info.get("goal", "")
-        new_route = self.traci_connect.simulation.findRoute(next_edgeID, target_edgeID)
-        new_edge_list = reach_edgeIDs
-        if len(new_route.edges) > 0:
-            new_edge_list = reach_edgeIDs[: len(reach_edgeIDs) - 1]
-            new_edge_list[len(new_edge_list) : len(new_route.edges)] = new_route.edges
-        self.traci_connect.vehicle.setRoute(vehID, new_edge_list)
-        return True
+        tr_ins = self.traci_connect
+        could_turn, reach_laneIDs = self._could_turn(vehID, veh_info, direction, speed)
+        reach_edgeIDs = [tr_ins.lane.getEdgeID(laneID) for laneID in reach_laneIDs]
+        print(reach_edgeIDs, "edges", vehID)
+        if len(reach_edgeIDs) > 0:
+            # move indirectly
+            target_edgeID = veh_info.get("goal", "")
+            next_edgeID = reach_edgeIDs[len(reach_edgeIDs) - 1]
+            new_route = tr_ins.simulation.findRoute(next_edgeID, target_edgeID)
+            new_edges = new_route.edges
+            new_edge_list = reach_edgeIDs
+            if len(new_edges) > 0:
+                new_edge_list = reach_edgeIDs[: len(reach_edgeIDs) - 1]
+                new_edge_list[len(new_edge_list) : len(new_edges)] = new_edges
+            tr_ins.vehicle.setRoute(vehID, new_edge_list)
+        return could_turn
 
     def _get_route_info(self, vehID="", routeID="", route_edges=[], route_info_list={}):
         route = []
@@ -277,41 +249,3 @@ class SumoUtil:
         del route
         route_info = {"length": length, "travel_time": travel_time, "cost": travel_time}
         return route_info
-
-    def _is_exist(self, pos, r, target):
-        posx, posy = pos
-
-        def distance(targetpos):
-            x, y = targetpos
-            return np.sqrt((posx - x) ** 2 + (posy - y) ** 2)
-
-        dis = distance(target)
-        relative_pos = [x - y for (x, y) in zip(target, pos)]
-        return dis <= r, relative_pos
-
-    def _get_neighbor(self, pos_list, central_index, visible_range):
-        neighbor_list = []
-        central_pos = pos_list[central_index]
-        for i, pos in enumerate(pos_list):
-            if i == central_index:
-                continue
-            x, y = pos
-            if x == -np.inf or y == -np.inf:
-                isexist, dis = False, np.inf
-            else:
-                isexist, dis = self._is_exist(central_pos, visible_range, pos)
-            if isexist:
-                tmp = [i, dis]
-                neighbor_list.append(tmp)
-        return neighbor_list
-
-    def _get_neighbor_list(self, pos_list, visible_range):
-        neighbor_list = []
-        for index, pos in enumerate(pos_list):
-            x, y = pos
-            if x != -np.inf and y != -np.inf:
-                tmp = self._get_neighbor(pos_list, index, visible_range)
-            else:
-                tmp = []
-            neighbor_list.append(tmp)
-        return neighbor_list

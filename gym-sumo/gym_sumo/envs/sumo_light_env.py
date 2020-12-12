@@ -108,9 +108,10 @@ class SumoLightEnv(BaseEnv):
                 to_goal_length = self._graph._calc_distance(
                     info["pos"], self._goal[vehID]["pos"]
                 )
-                # reward += info["speed"]
                 dense_reward = pre_to_goal_length - to_goal_length
                 reward += dense_reward * 0.01
+                if not is_take:
+                    reward -= 0.01
         done = self._is_done(vehID) or info["needs_reset"]
         observation = self._observation(vehID, done, is_arrived)
         return observation, reward, done, info
@@ -166,12 +167,10 @@ class SumoLightEnv(BaseEnv):
         angle = self.traci_connect.vehicle.getAngle(vehID)
         vector = list(vector_decomposition(veh_len, angle))
         veh_vector = list(get_base_vector([0.0, 0.0], vector))
-        could_reach, cur_laneID = self._sumo_util._could_reach_junction(vehID)
         directions = [self._sumo_util._get_direction_along_route(vehID)]
-        if could_reach:
-            cur_edgeID = self.traci_connect.lane.getEdgeID(cur_laneID)
-            cur_lane_index = self._network.get_lane_index(cur_laneID)
-            directions = self._network.get_next_directions(cur_edgeID, cur_lane_index)
+        cur_edgeID = self.traci_connect.vehicle.getRoadID(vehID)
+        cur_lane_index = self.traci_connect.vehicle.getLaneIndex(vehID)
+        directions = self._network.get_next_directions(cur_edgeID, cur_lane_index)
         turn_direction = list(
             map(lambda direct: 1.0 if direct in directions else 0.0, DIRECTION)
         )
@@ -201,18 +200,12 @@ class SumoLightEnv(BaseEnv):
             if not is_take:
                 self._remove_car_if_necessary(vehID, False)
                 return False
-        next_wand_turn = self._vehID_list[vehID].get("want_turn_direct", DIRECTION[0])
-        direction = next_wand_turn if action > DIRECT_FLAG else DIRECTION[action]
+        next_want_turn = self._vehID_list[vehID].get("want_turn_direct", DIRECTION[0])
+        direction = next_want_turn if action > DIRECT_FLAG else DIRECTION[action]
         self._vehID_list[vehID]["want_turn_direct"] = direction
-        could_turn, _, _ = self._sumo_util._could_turn(
+        is_take = self._sumo_util.turn(
             vehID, self._vehID_list[vehID], direction, future_speed
         )
-        is_take = could_turn
-        if could_turn:
-            self._sumo_util.turn(
-                vehID, self._vehID_list[vehID], direction, future_speed
-            )
-            # self._reset_goal_element(vehID)
-            self._reset_routeID(vehID)
+        self._reset_routeID(vehID)
         self._remove_car_if_necessary(vehID, False)
         return is_take
