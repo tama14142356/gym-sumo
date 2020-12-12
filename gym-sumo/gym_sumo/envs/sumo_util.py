@@ -207,7 +207,6 @@ class SumoUtil:
         tr_ins = self.traci_connect
         could_turn, reach_laneIDs = self._could_turn(vehID, veh_info, direction, speed)
         reach_edgeIDs = [tr_ins.lane.getEdgeID(laneID) for laneID in reach_laneIDs]
-        print(reach_edgeIDs, "edges", vehID)
         if len(reach_edgeIDs) > 0:
             # move indirectly
             target_edgeID = veh_info.get("goal", "")
