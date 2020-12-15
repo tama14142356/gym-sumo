@@ -73,8 +73,9 @@ class SumoUtil:
         net = self._network
         future_lane_pos = self.get_future_lane_pos(vehID, speed)
         road_length, cur_laneID = self._current_road_length(vehID)
-        if road_length >= future_lane_pos or cur_laneID == "":
-            return [] if cur_laneID == "" else [cur_laneID], cur_laneID
+        if cur_laneID == "":
+            return [], cur_laneID
+        is_append = road_length < future_lane_pos
         reach_laneIDs = [cur_laneID]
         while True:
             cur_edgeID = self.traci_connect.lane.getEdgeID(cur_laneID)
@@ -93,7 +94,9 @@ class SumoUtil:
             via_laneID = net.get_via_laneID(
                 cur_edgeID, next_edgeID, cur_lane_index, to_lane_index
             )
-            reach_laneIDs.append(next_laneID)
+            if is_append:
+                # couldn't reach but exist next lane
+                reach_laneIDs.append(next_laneID)
             road_length += self.traci_connect.lane.getLength(via_laneID)
             road_length += self.traci_connect.lane.getLength(next_laneID)
             if road_length >= future_lane_pos:
@@ -118,7 +121,7 @@ class SumoUtil:
         reach_laneIDs, next_laneID = self.get_could_reach_laneIDs(
             vehID, direction, speed
         )
-        return next_laneID == "", reach_laneIDs
+        return next_laneID == "", reach_laneIDs, next_laneID
 
     def _current_road_length(self, vehID):
         """calculate length of current road from current road vehicle is on
@@ -183,12 +186,13 @@ class SumoUtil:
         target_edgeID = veh_info.get("goal", "")
         # その方向に曲がれる道路が存在しない時
         if cur_lane_index == -1:
-            return cur_edgeID == target_edgeID, []
-        is_over, reach_laneIDs = self._is_over_turn(vehID, direction, speed)
-        return (not is_over), reach_laneIDs
+            return cur_edgeID == target_edgeID, [], ""
+        is_over_info = self._is_over_turn(vehID, direction, speed)
+        is_over, reach_laneIDs, next_laneID = is_over_info
+        return (not is_over), reach_laneIDs, next_laneID
 
     def could_turn(self, vehID, veh_info, direction, speed=-1.0):
-        could_turn, _ = self._could_turn(vehID, veh_info, direction, speed)
+        could_turn, _, _ = self._could_turn(vehID, veh_info, direction, speed)
         return could_turn
 
     def turn(self, vehID, veh_info, direction, speed=-1.0):
@@ -205,12 +209,23 @@ class SumoUtil:
             bool: whether vehicle could turn
         """
         tr_ins = self.traci_connect
-        could_turn, reach_laneIDs = self._could_turn(vehID, veh_info, direction, speed)
+        could_turn_info = self._could_turn(vehID, veh_info, direction, speed)
+        could_turn, reach_laneIDs, next_laneID = could_turn_info
         reach_edgeIDs = [tr_ins.lane.getEdgeID(laneID) for laneID in reach_laneIDs]
-        if len(reach_edgeIDs) > 0:
+        if len(reach_laneIDs) > 0:
             # move indirectly
             target_edgeID = veh_info.get("goal", "")
+            cur_edgeID = reach_edgeIDs[0]
+            # arrived goal road
+            if target_edgeID == cur_edgeID:
+                return True
             next_edgeID = reach_edgeIDs[len(reach_edgeIDs) - 1]
+            if (
+                next_laneID != reach_laneIDs[len(reach_laneIDs) - 1]
+                and next_laneID != ""
+            ):
+                next_edgeID = tr_ins.lane.getEdgeID(next_laneID)
+                reach_edgeIDs.append(next_edgeID)
             new_route = tr_ins.simulation.findRoute(next_edgeID, target_edgeID)
             new_edges = new_route.edges
             new_edge_list = reach_edgeIDs

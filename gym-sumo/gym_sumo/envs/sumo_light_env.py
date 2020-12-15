@@ -37,6 +37,7 @@ class SumoLightEnv(BaseEnv):
         seed=None,
         label="default",
         debug_view=False,
+        is_random_route=True,
     ):
         super().__init__(
             isgraph,
@@ -48,10 +49,12 @@ class SumoLightEnv(BaseEnv):
             seed,
             label,
             debug_view,
+            is_random_route,
         )
         # 6action and accel, brake
         self.action_text = self.action_text + RENDER_TEXT.copy()
         self.action_space = spaces.Discrete(10)
+        self.action_space.seed(seed)
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf, dtype=np.float32, shape=(12,)
         )
@@ -197,11 +200,9 @@ class SumoLightEnv(BaseEnv):
             is_take = future_speed >= 0.0
             future_speed = future_speed if is_take else 0.0
             self.traci_connect.vehicle.setSpeed(vehID, future_speed)
-            if not is_take:
-                self._remove_car_if_necessary(vehID, False)
-                return False
-        next_want_turn = self._vehID_list[vehID].get("want_turn_direct", DIRECTION[0])
-        direction = next_want_turn if action > DIRECT_FLAG else DIRECTION[action]
+            self._remove_car_if_necessary(vehID, False)
+            return is_take
+        direction = DIRECTION[action]
         self._vehID_list[vehID]["want_turn_direct"] = direction
         is_take = self._sumo_util.turn(
             vehID, self._vehID_list[vehID], direction, future_speed

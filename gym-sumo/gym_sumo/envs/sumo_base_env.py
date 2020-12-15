@@ -27,6 +27,8 @@ except ImportError as e:
 AREA = ["nishiwaseda", "waseda_university"]
 # max length for route length
 MAX_LENGTH = 1000
+# road number of route
+ROAD_NUM = 2
 # standard length for adding car
 SPOS = 10.5
 # standard speed (40km/h) for vehicle
@@ -93,6 +95,7 @@ class SumoBaseEnv(gym.Env):
         seed=None,
         label="default",
         debug_view=False,
+        is_random_route=False,
     ):
         super().__init__()
         sumo_config = "sumo_configs/" + AREA[area]
@@ -115,11 +118,13 @@ class SumoBaseEnv(gym.Env):
         self._step_length = float(step_length)
         self._simulation_end = float(simulation_end)
         self._is_graph = isgraph
+        self._is_random_route = is_random_route
         self._route_list = {}
         self._vehID_list = {}
         self._goal = {}
         self._removed_vehID_list = []
         self._start_edge_list = []
+        self._seed = seed
         self.seed(seed)
         self._graph = Graph(self._netpath)
         self._network = self._graph.sumo_network
@@ -139,8 +144,18 @@ class SumoBaseEnv(gym.Env):
         except self.traci_connect.exceptions.FatalTraCIError as ci:
             print(ci)
 
+    @property
+    def np_random(self):
+        """Lazily seed the rng since this is expensive and only needed if
+        sampling from this space.
+        """
+        if self._np_random is None:
+            self.seed(self._seed)
+
+        return self._np_random
+
     def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
+        self._np_random, seed = seeding.np_random(seed)
         return [seed]
 
     def _is_done(self, vehID):
@@ -263,6 +278,7 @@ class SumoBaseEnv(gym.Env):
             route = self.traci_connect.route.getEdges(routeID)
             index = len(route_list) + index
             goal_edgeID = route[len(route) - 1]
+            route_info = self._route_list[routeID]
             if is_fix_target:
                 routeID, route, route_info = self._generate_route(index, goal_edgeID)
             start_edgeID, goal_edgeID = route[0], route[len(route) - 1]
@@ -290,12 +306,15 @@ class SumoBaseEnv(gym.Env):
         self._vehID_list.clear()
         self._removed_vehID_list.clear()
         self._goal.clear()
+        is_fix_target = True
+        if is_fix_target:
+            self._start_edge_list.clear()
         for i in range(self._carnum):
             vehID = "veh{}".format(i)
             if vehID in v_list:
                 self.traci_connect.vehicle.remove(vehID, tc.REMOVE_TELEPORT)
                 self.traci_connect.simulationStep()
-            self._add_car(i, vehID, is_create_route=False, is_fix_target=True)
+            self._add_car(i, vehID, is_create_route=False, is_fix_target=is_fix_target)
 
         self.traci_connect.simulationStep()
         self._reset_simulate_time()
@@ -303,6 +322,7 @@ class SumoBaseEnv(gym.Env):
     def _generate_route(self, index, to_edgeID=""):
         exclude_list = []
         routeID = "route{}".format(index)
+        is_random = self._is_random_route
         is_infinite, is_find = (index == 0), False
         find_num, max_find_num = 0, 10
         routeID_list = self.traci_connect.route.getIDList()
@@ -319,14 +339,16 @@ class SumoBaseEnv(gym.Env):
                     routeID=other_routeID, route_info_list=self._route_list
                 )
                 break
-            find_route_info = self._find_route(routeID, exclude_list, to_edgeID)
+            find_route_info = self._find_route(exclude_list, to_edgeID, is_random)
             is_find, exclude, route_info, route = find_route_info
             if exclude not in exclude_list:
                 exclude_list.append(exclude)
             find_num += 1
         return routeID, route, route_info
 
-    def _find_route(self, routeID, exclude=[], to_edgeID=""):
+    def _find_route(self, exclude=[], to_edgeID="", is_random=False):
+        if is_random:
+            return self._find_route_random(exclude, to_edgeID)
         num_edge = self._graph.get_num("edge_normal") - 1
         if to_edgeID == "":
             edges = random_tuple(
@@ -348,6 +370,38 @@ class SumoBaseEnv(gym.Env):
         length = route_info.get("length", MAX_LENGTH + 1)
         is_find = len(route.edges) > 0 and length <= MAX_LENGTH
         return is_find, edges, route_info, route.edges
+
+    def _find_route_random(self, exclude=[], to_edgeID=""):
+        num_edge = self._graph.get_num("edge_normal") - 1
+        from_edge_index, to_edge_index, is_find = -1, -1, True
+        if to_edgeID != "":
+            to_edge_index = self._network.get_edge_index(to_edgeID)
+            route = [to_edgeID]
+            for i in range(ROAD_NUM - 1):
+                from_edgeID_list = self._network.get_from_edgeIDs(to_edgeID)
+                if len(from_edgeID_list) <= 0:
+                    is_find = False
+                    break
+                to_edgeID = self.np_random.choice(from_edgeID_list)
+                route.insert(0, to_edgeID)
+            from_edge_index = self._network.get_edge_index(to_edgeID)
+        else:
+            from_edge_index = random_tuple(
+                0, num_edge, 1, self._start_edge_list, exclude, self.np_random
+            )[0]
+            from_edgeID = self._network.get_edgeID(from_edge_index)
+            route = [from_edgeID]
+            for i in range(ROAD_NUM - 1):
+                next_edgeID_list = self._network.get_next_edgeIDs(from_edgeID)
+                if len(next_edgeID_list) <= 0:
+                    is_find = False
+                    break
+                from_edgeID = self.np_random.choice(next_edgeID_list)
+                route.append(from_edgeID)
+            to_edge_index = self._network.get_edge_index(from_edgeID)
+        edges = (from_edge_index, to_edge_index)
+        route_info = self._sumo_util._get_route_info(route_edges=route)
+        return is_find, edges, route_info, route
 
     def screenshot_and_simulation_step(self, action=-1, vehID=""):
         with tempfile.TemporaryDirectory() as tmpdir:
