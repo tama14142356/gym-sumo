@@ -446,10 +446,10 @@ class SumoBaseEnv(gym.Env):
             goal_edgeID = self._vehID_list[vehID].get("goal", "")
         goal_text = "goal: " + goal_edgeID
         text = action_text + "\n" + sim_time_tx + "\n" + step_tx + "\n" + goal_text
-        if is_removed:
-            text += "\nCRASH!!"
-        elif is_arrived:
+        if is_arrived:
             text += "\nARRIVED!!"
+        elif is_removed:
+            text += "\nCRASH!!"
         elif self._is_done(vehID):
             text += "\nTIME OVER"
         return text
