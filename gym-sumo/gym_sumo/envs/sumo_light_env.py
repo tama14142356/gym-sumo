@@ -159,6 +159,8 @@ class SumoLightEnv(BaseEnv):
         return np.array(flatten_list(observation), dtype=np.float32)
 
     def _observation(self, vehID, is_done=False, is_arrived=False):
+        if vehID not in self.traci_connect.vehicle.getIDList():
+            return self._remove_observation(vehID)
         if is_done:
             return self._done_observation(vehID, is_arrived)
         pos = list(self.traci_connect.vehicle.getPosition(vehID))
