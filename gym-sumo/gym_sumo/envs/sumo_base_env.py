@@ -240,6 +240,7 @@ class SumoBaseEnv(gym.Env):
         if label in traci_label:
             index = len(traci_label)
             label = label + "{}".format(index)
+        SumoBaseEnv.sumo_label.append(label)
         self.label = label
         traci.start(sumo_cmd, numRetries=100, label=label)
         self.traci_connect = traci.getConnection(label)
