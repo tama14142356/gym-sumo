@@ -25,6 +25,7 @@ kwargs = {
 }
 
 env = gym.make("sumo-light-v0", **kwargs)
+# env = gym.make("sumo-fix-v0", **kwargs)
 env = gym.wrappers.Monitor(
     env, "./video", force=True, video_callable=(lambda e: e % 1 == 0)
 )
