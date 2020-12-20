@@ -11,6 +11,7 @@ GOAL_EDGE = "-94518685#3"
 class SumoFixedEnv(LightEnv):
     def __init__(
         self,
+        isgraph=True,
         area=0,
         carnum=100,
         mode="gui",
@@ -19,19 +20,23 @@ class SumoFixedEnv(LightEnv):
         seed=None,
         label="default",
         debug_view=False,
+        is_random_route=True,
+        road_freq=100,
         start_edgeID=START_EDGE,
         end_edgeID=GOAL_EDGE,
         fixed_veh_index=0,
     ):
         super().__init__(
-            area=0,
-            carnum=carnum,
-            mode=mode,
-            step_length=step_length,
-            simulation_end=simulation_end,
-            seed=seed,
-            label=label,
-            debug_view=debug_view,
+            isgraph,
+            area,
+            carnum,
+            mode,
+            step_length,
+            simulation_end,
+            seed,
+            label,
+            debug_view,
+            is_random_route,
         )
         self.fixed_veh_index = fixed_veh_index
         self.fixed_vehID = list(self._vehID_list)[fixed_veh_index]
