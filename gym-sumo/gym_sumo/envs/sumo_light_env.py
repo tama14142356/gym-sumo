@@ -38,6 +38,7 @@ class SumoLightEnv(BaseEnv):
         label="default",
         debug_view=False,
         is_random_route=True,
+        road_freq=100,
     ):
         super().__init__(
             isgraph,
@@ -59,6 +60,7 @@ class SumoLightEnv(BaseEnv):
             low=-np.inf, high=np.inf, dtype=np.float32, shape=(12,)
         )
         self.is_init = True
+        self.road_freq = road_freq
 
     def step(self, action, vehID=""):
         # determine next step action, affect environment
@@ -120,7 +122,12 @@ class SumoLightEnv(BaseEnv):
         return observation, reward, done, info
 
     def reset(self):
+        self.accumulate_steps = 0.0 if self.is_init else self.accumulate_steps
         if not self.is_init:
+            pre_steps = self.accumulate_steps
+            self.accumulate_steps += self._get_cur_step()
+            if pre_steps // self.road_freq < self.accumulate_steps // self.road_freq:
+                self.road_num = min(self.road_num + 2, 20)
             self._reposition_car()
         self.is_init = False
         vehID = list(self._vehID_list)[0]

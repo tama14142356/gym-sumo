@@ -110,6 +110,7 @@ class SumoBaseEnv(gym.Env):
             "video.frames_per_second": 1,
         }
         self.np_img = None
+        self._road_num = ROAD_NUM
         self.action_text = RENDER_TEXT.copy()
         self._cur_simulation_start = 0.0
         self._carnum = carnum
@@ -154,6 +155,16 @@ class SumoBaseEnv(gym.Env):
 
         return self._np_random
 
+    @property
+    def road_num(self):
+        return self._road_num
+
+    @road_num.setter
+    def road_num(self, length):
+        if type(length) != int and type(length) != float:
+            raise TypeError("invalid type")
+        self._road_num = int(length)
+
     def seed(self, seed=None):
         self._np_random, seed = seeding.np_random(seed)
         return [seed]
@@ -195,15 +206,16 @@ class SumoBaseEnv(gym.Env):
         goal_element["pos"] = list(pos)
         self._goal[vehID] = goal_element
 
-    def _reset_routeID(self, vehID="", routeID=""):
-        if len(vehID) <= 0:
+    def _reset_routeID(self, vehID="", routeID="", is_set_veh=True):
+        if len(vehID) <= 0 and is_set_veh:
             vehID = list(self._vehID_list)[0]
         if len(routeID) <= 0:
             routeID = self.traci_connect.vehicle.getRouteID(vehID)
         if routeID not in self._route_list:
             route_info = self._sumo_util._get_route_info(routeID=routeID)
             self._route_list[routeID] = route_info
-        self._vehID_list[vehID]["route"] = routeID
+        if is_set_veh:
+            self._vehID_list[vehID]["route"] = routeID
 
     def _init_simulator(self, mode="gui", routing_alg="dijkstra", step_length=0.01):
         sumocfg = self._sumocfg
@@ -301,13 +313,16 @@ class SumoBaseEnv(gym.Env):
         self._vehID_list[vehID]["want_turn_direct"] = DIRECTION[STRAIGHT]
         self._reset_simulate_time()
 
-    def _reposition_car(self):
+    def _reposition_car(self, is_fix_target=True):
         self.traci_connect.simulationStep()
         v_list = self.traci_connect.vehicle.getIDList()
         self._vehID_list.clear()
         self._removed_vehID_list.clear()
         self._goal.clear()
-        is_fix_target = True
+        self._route_list.clear()
+        routeID_list = self.traci_connect.route.getIDList()
+        for routeID in routeID_list:
+            self._reset_routeID(routeID=routeID, is_set_veh=False)
         if is_fix_target:
             self._start_edge_list.clear()
         for i in range(self._carnum):
@@ -374,34 +389,40 @@ class SumoBaseEnv(gym.Env):
 
     def _find_route_random(self, exclude=[], to_edgeID=""):
         num_edge = self._graph.get_num("edge_normal") - 1
+        road_num = self.road_num
         from_edge_index, to_edge_index, is_find = -1, -1, True
-        if to_edgeID != "":
-            to_edge_index = self._network.get_edge_index(to_edgeID)
-            route = [to_edgeID]
-            for i in range(ROAD_NUM - 1):
-                from_edgeID_list = self._network.get_from_edgeIDs(to_edgeID)
-                if len(from_edgeID_list) <= 0:
-                    is_find = False
+        cur_road_num = 1
+        to_edge_index = self._network.get_edge_index(to_edgeID)
+        if to_edgeID == "":
+            to_edge_index = random_tuple(
+                0, num_edge, exclude=exclude, random_state=self.np_random
+            )[1]
+            to_edgeID = self._network.get_edgeID(to_edge_index)
+        route = [to_edgeID]
+        exclude_edge = []
+        while True:
+            from_edgeID_list = self._network.get_from_edgeIDs(to_edgeID)
+            from_edgeID_list = [e for e in from_edgeID_list if e not in exclude_edge]
+            if len(from_edgeID_list) <= 0:
+                if len(route) <= 1:
                     break
-                to_edgeID = self.np_random.choice(from_edgeID_list)
-                route.insert(0, to_edgeID)
-            from_edge_index = self._network.get_edge_index(to_edgeID)
-        else:
-            from_edge_index = random_tuple(
-                0, num_edge, 1, self._start_edge_list, exclude, self.np_random
-            )[0]
-            from_edgeID = self._network.get_edgeID(from_edge_index)
-            route = [from_edgeID]
-            for i in range(ROAD_NUM - 1):
-                next_edgeID_list = self._network.get_next_edgeIDs(from_edgeID)
-                if len(next_edgeID_list) <= 0:
-                    is_find = False
-                    break
-                from_edgeID = self.np_random.choice(next_edgeID_list)
-                route.append(from_edgeID)
-            to_edge_index = self._network.get_edge_index(from_edgeID)
+                if to_edgeID not in exclude_edge:
+                    exclude_edge.append(to_edgeID)
+                    route.pop(0)
+                    if to_edgeID not in route:
+                        cur_road_num -= 1
+                    to_edgeID = route[0]
+                continue
+            to_edgeID = self.np_random.choice(from_edgeID_list)
+            if to_edgeID not in route:
+                cur_road_num += 1
+            route.insert(0, to_edgeID)
+            if cur_road_num >= road_num:
+                break
+        from_edge_index = self._network.get_edge_index(to_edgeID)
         edges = (from_edge_index, to_edge_index)
         route_info = self._sumo_util._get_route_info(route_edges=route)
+        self.road_num = cur_road_num
         return is_find, edges, route_info, route
 
     def screenshot_and_simulation_step(self, action=-1, vehID=""):
