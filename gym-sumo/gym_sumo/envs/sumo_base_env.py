@@ -28,7 +28,8 @@ AREA = ["nishiwaseda", "waseda_university"]
 # max length for route length
 MAX_LENGTH = 1000
 # road number of route
-ROAD_NUM = 2
+MAX_ROAD_NUM = 20
+MIN_ROAD_NUM = 2
 # standard length for adding car
 SPOS = 10.5
 # standard speed (40km/h) for vehicle
@@ -110,7 +111,7 @@ class SumoBaseEnv(gym.Env):
             "video.frames_per_second": 1,
         }
         self.np_img = None
-        self._road_num = ROAD_NUM
+        self._road_num = MIN_ROAD_NUM
         self.action_text = RENDER_TEXT.copy()
         self._cur_simulation_start = 0.0
         self._carnum = carnum
@@ -163,7 +164,7 @@ class SumoBaseEnv(gym.Env):
     def road_num(self, length):
         if type(length) != int and type(length) != float:
             raise TypeError("invalid type")
-        self._road_num = int(length)
+        self._road_num = min(int(length), MAX_ROAD_NUM)
 
     def seed(self, seed=None):
         self._np_random, seed = seeding.np_random(seed)

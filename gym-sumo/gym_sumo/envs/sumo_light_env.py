@@ -127,7 +127,7 @@ class SumoLightEnv(BaseEnv):
             pre_steps = self.accumulate_steps
             self.accumulate_steps += self._get_cur_step()
             if pre_steps // self.road_freq < self.accumulate_steps // self.road_freq:
-                self.road_num = min(self.road_num + 2, 20)
+                self.road_num = self.road_num + 2
             self._reposition_car()
         self.is_init = False
         vehID = list(self._vehID_list)[0]
