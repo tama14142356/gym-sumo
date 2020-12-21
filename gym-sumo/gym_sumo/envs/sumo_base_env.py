@@ -158,6 +158,8 @@ class SumoBaseEnv(gym.Env):
 
     @property
     def road_num(self):
+        if type(self._road_num) != int and type(self._road_num) != float:
+            self._road_num = int(MIN_ROAD_NUM)
         return self._road_num
 
     @road_num.setter
