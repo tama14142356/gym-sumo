@@ -38,7 +38,7 @@ class SumoLightEnv(BaseEnv):
         label="default",
         debug_view=False,
         is_random_route=True,
-        road_freq=100,
+        road_freq=0,
     ):
         super().__init__(
             isgraph,
@@ -124,10 +124,12 @@ class SumoLightEnv(BaseEnv):
     def reset(self):
         self.accumulate_steps = 0.0 if self.is_init else self.accumulate_steps
         if not self.is_init:
-            pre_steps = self.accumulate_steps
-            self.accumulate_steps += self._get_cur_step()
-            if pre_steps // self.road_freq < self.accumulate_steps // self.road_freq:
-                self.road_num = self.road_num + 2
+            road_freq = self.road_freq
+            if road_freq is not None and road_freq > 0:
+                pre_steps = self.accumulate_steps
+                self.accumulate_steps += self._get_cur_step()
+                if pre_steps // road_freq < self.accumulate_steps // road_freq:
+                    self.road_num = self.road_num + 2
             self._reposition_car()
         self.is_init = False
         vehID = list(self._vehID_list)[0]
