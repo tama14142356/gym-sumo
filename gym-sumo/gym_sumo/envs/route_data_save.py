@@ -20,8 +20,15 @@ CONFIG_RELATIVE_PATH = "sumo_configs/"
 OUTPUT_FILE_NAME = "route_data.binaryfile"
 TEXT_FILE_NAME = "route_data.txt"
 
+CWD_PATH = pathlib.os.path.dirname(__file__)
+CONFIG_DEFAULT_AREA = CONFIG_RELATIVE_PATH + AREA[0]
+CONFIG_DEFAULT_ABS_PATH = pathlib.Path(
+    pathlib.os.path.join(CWD_PATH, CONFIG_DEFAULT_AREA)
+).resolve()
+ROUTE_DEFAULT_DIR = CONFIG_DEFAULT_ABS_PATH / "route"
 
-def route_data_save(start_end_list, file_path):
+
+def route_data_save(start_end_list, file_path=str(ROUTE_DEFAULT_DIR)):
     tmp_path = pathlib.Path(file_path)
     route_data_file_name = OUTPUT_FILE_NAME
     route_data_text_file_name = TEXT_FILE_NAME
@@ -33,7 +40,7 @@ def route_data_save(start_end_list, file_path):
         print(start_end_list, file=f)
 
 
-def route_data_load(file_path):
+def route_data_load(file_path=str(ROUTE_DEFAULT_DIR)):
     tmp_path = pathlib.Path(file_path)
     route_data_file_name = OUTPUT_FILE_NAME
     output_path = tmp_path / route_data_file_name
@@ -70,18 +77,13 @@ def calc_distance(from_pos, to_pos):
 
 
 def main(area, net_file_name, sumocfg_file_name, length, max_data):
-    cwd_path = pathlib.os.path.dirname(__file__)
-    sumo_config = CONFIG_RELATIVE_PATH + AREA[area]
-    sumo_config_abs_path = pathlib.Path(
-        pathlib.os.path.join(cwd_path, sumo_config)
-    ).resolve()
-
+    sumo_config_abs_path = CONFIG_DEFAULT_ABS_PATH
     sumocfg_path = sumo_config_abs_path / sumocfg_file_name
     traci_conn = init_simulator(str(sumocfg_path))
     net_path = sumo_config_abs_path / net_file_name
     network = SumoGraph(str(net_path))
 
-    route_dir_path = sumo_config_abs_path / "route"
+    route_dir_path = ROUTE_DEFAULT_DIR
     pathlib.os.makedirs(str(route_dir_path), exist_ok=True)
 
     edgeID_list = network.get_all_edgeID_list(False)
