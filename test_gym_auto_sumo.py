@@ -6,6 +6,7 @@ import logging
 import datetime
 import json
 import pathlib
+from tqdm import tqdm
 
 
 def main(episode, is_msg=True, monitor=True, outdir="./video"):
@@ -33,7 +34,8 @@ def main(episode, is_msg=True, monitor=True, outdir="./video"):
 
     arrive_num = 0
     not_arrived_list = []
-    for i in range(episode):
+    loop = range(episode) if is_msg else tqdm(range(episode))
+    for i in loop:
         step = 0
         env.reset()
         done = False
