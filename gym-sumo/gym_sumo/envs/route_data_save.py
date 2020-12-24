@@ -29,16 +29,23 @@ CONFIG_DEFAULT_ABS_PATH = pathlib.Path(
 ).resolve()
 ROUTE_DEFAULT_DIR = CONFIG_DEFAULT_ABS_PATH / "route"
 
-MIN_DEFAULT_LENGTH = 1000.0
-MAX_DEFAULT_LENGTH = 2000.0
-LOAD_DEFAULT_DIR = ROUTE_DEFAULT_DIR / "{}-{}".format(
-    MIN_DEFAULT_LENGTH, MAX_DEFAULT_LENGTH
+MAX_DEFAULT_DATA = 100000
+MIN_DEFAULT_LENGTH = 500.0
+MAX_DEFAULT_LENGTH = 1000.0
+LOAD_DEFAULT_DIR = (
+    ROUTE_DEFAULT_DIR
+    / "{}_data".format(MAX_DEFAULT_DATA)
+    / "{}-{}_length".format(MIN_DEFAULT_LENGTH, MAX_DEFAULT_LENGTH)
 )
 
 
 def format_length_dir(length):
     min_length, max_length = length
-    return "{}-{}".format(min_length, max_length)
+    return "{}-{}_length".format(min_length, max_length)
+
+
+def format_data_num_dir(data_num):
+    return "{}_data".format(data_num)
 
 
 def route_data_save(start_end_list, file_path=str(LOAD_DEFAULT_DIR)):
@@ -96,8 +103,9 @@ def main(area, net_file_name, sumocfg_file_name, length, max_data):
     net_path = sumo_config_abs_path / net_file_name
     network = SumoGraph(str(net_path))
 
-    min_length, max_length = length
-    route_dir_path = ROUTE_DEFAULT_DIR / "{}-{}".format(min_length, max_length)
+    route_dir_path = (
+        ROUTE_DEFAULT_DIR / format_data_num_dir(max_data) / format_length_dir(length)
+    )
     pathlib.os.makedirs(str(route_dir_path), exist_ok=True)
 
     edgeID_list = network.get_all_edgeID_list(False)
@@ -109,6 +117,7 @@ def main(area, net_file_name, sumocfg_file_name, length, max_data):
 
     route_data_list = []
     route_data_num = 0
+    min_length, max_length = length
 
     progress_bar = tqdm(total=max_data)
 
@@ -149,7 +158,7 @@ if __name__ == "__main__":
     parser.add_argument("--max-length", type=float, default=MAX_DEFAULT_LENGTH)
     parser.add_argument("--only-more", action="store_true", default=False)
     parser.add_argument("--only-less", action="store_true", default=False)
-    parser.add_argument("--max-data", type=int, default=100000)
+    parser.add_argument("--max-data", type=int, default=MAX_DEFAULT_DATA)
 
     args = parser.parse_args()
 
