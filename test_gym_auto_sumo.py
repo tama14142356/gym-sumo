@@ -19,9 +19,10 @@ def main(episode, is_msg=True, monitor=True, outdir="./video"):
         # "debug_view": True,
         "is_random_route": False,  # for debug
         "is_auto": True,
+        "route_length": [1000.0, 1500.0],
+        "max_data": 100000,
     }
 
-    # env = gym.make("sumo-light-v0", **kwargs)
     env = gym.make("sumo-fix-v0", **kwargs)
     if monitor:
         env = gym.wrappers.Monitor(
