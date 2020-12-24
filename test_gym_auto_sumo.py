@@ -99,4 +99,4 @@ if __name__ == "__main__":
 
     outdir = prepare_dir(args, args.outdir)
 
-    main(args.episode, (not args.no_message), (not args.no_monitor), outdir)
+    main(args.episodes, (not args.no_message), (not args.no_monitor), outdir)
