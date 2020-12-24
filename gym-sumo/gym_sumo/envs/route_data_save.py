@@ -6,6 +6,8 @@ from gym import error
 import gym_sumo.envs.sumo_base_env as base
 from gym_sumo.envs.sumo_graph import SumoGraph
 
+from tqdm import tqdm
+
 MESSAGE_HINT = (
     "(HINT: you can install sumo or set the path for sumo library by reading README.md)"
 )
@@ -27,8 +29,19 @@ CONFIG_DEFAULT_ABS_PATH = pathlib.Path(
 ).resolve()
 ROUTE_DEFAULT_DIR = CONFIG_DEFAULT_ABS_PATH / "route"
 
+MIN_DEFAULT_LENGTH = 1000.0
+MAX_DEFAULT_LENGTH = 2000.0
+LOAD_DEFAULT_DIR = ROUTE_DEFAULT_DIR / "{}-{}".format(
+    MIN_DEFAULT_LENGTH, MAX_DEFAULT_LENGTH
+)
 
-def route_data_save(start_end_list, file_path=str(ROUTE_DEFAULT_DIR)):
+
+def format_length_dir(length):
+    min_length, max_length = length
+    return "{}-{}".format(min_length, max_length)
+
+
+def route_data_save(start_end_list, file_path=str(LOAD_DEFAULT_DIR)):
     tmp_path = pathlib.Path(file_path)
     route_data_file_name = OUTPUT_FILE_NAME
     route_data_text_file_name = TEXT_FILE_NAME
@@ -40,7 +53,7 @@ def route_data_save(start_end_list, file_path=str(ROUTE_DEFAULT_DIR)):
         print(start_end_list, file=f)
 
 
-def route_data_load(file_path=str(ROUTE_DEFAULT_DIR)):
+def route_data_load(file_path=str(LOAD_DEFAULT_DIR)):
     tmp_path = pathlib.Path(file_path)
     route_data_file_name = OUTPUT_FILE_NAME
     output_path = tmp_path / route_data_file_name
@@ -83,7 +96,8 @@ def main(area, net_file_name, sumocfg_file_name, length, max_data):
     net_path = sumo_config_abs_path / net_file_name
     network = SumoGraph(str(net_path))
 
-    route_dir_path = ROUTE_DEFAULT_DIR
+    min_length, max_length = length
+    route_dir_path = ROUTE_DEFAULT_DIR / "{}-{}".format(min_length, max_length)
     pathlib.os.makedirs(str(route_dir_path), exist_ok=True)
 
     edgeID_list = network.get_all_edgeID_list(False)
@@ -96,6 +110,8 @@ def main(area, net_file_name, sumocfg_file_name, length, max_data):
     route_data_list = []
     route_data_num = 0
 
+    progress_bar = tqdm(total=max_data)
+
     for i, start_edgeID in enumerate(edgeID_list):
         start_pos = edge_info_list[start_edgeID]["pos"]
         for j, target_edgeID in enumerate(edgeID_list):
@@ -103,11 +119,12 @@ def main(area, net_file_name, sumocfg_file_name, length, max_data):
             if i == j:
                 continue
             cur_length = calc_distance(start_pos, end_pos)
-            if cur_length >= length:
+            if cur_length >= min_length and cur_length <= max_length:
                 route = traci_conn.simulation.findRoute(start_edgeID, target_edgeID)
                 if len(route.edges) > 0:
                     route_data_num += 1
                     route_data_list.append([start_edgeID, target_edgeID])
+                    progress_bar.update(1)
                     if route_data_num >= max_data:
                         break
         if route_data_num >= max_data:
@@ -128,14 +145,26 @@ if __name__ == "__main__":
     parser.add_argument("--area", type=int, default=0)
     parser.add_argument("--net-file-name", type=str, default="osm.net.xml")
     parser.add_argument("--sumocfg-file-name", type=str, default="osm.sumocfg")
-    parser.add_argument("--length", type=float, default=1000.0)
+    parser.add_argument("--min-length", type=float, default=MIN_DEFAULT_LENGTH)
+    parser.add_argument("--max-length", type=float, default=MAX_DEFAULT_LENGTH)
+    parser.add_argument("--only-more", action="store_true", default=False)
+    parser.add_argument("--only-less", action="store_true", default=False)
     parser.add_argument("--max-data", type=int, default=100000)
+
     args = parser.parse_args()
+
+    length = [args.min_length, args.max_length]
+
+    if args.only_more:
+        length[1] = np.inf
+
+    if args.only_less:
+        length[0] = 0.0
 
     main(
         args.area,
         args.net_file_name,
         args.sumocfg_file_name,
-        args.length,
+        length,
         args.max_data,
     )

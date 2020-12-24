@@ -22,6 +22,7 @@ class SumoFixedEnv(LightEnv):
         is_random_route=True,
         road_freq=100,
         is_auto=False,
+        route_length=[1000.0, 2000.0],
         fixed_veh_index=0,
     ):
         super().__init__(
@@ -41,7 +42,10 @@ class SumoFixedEnv(LightEnv):
         self.fixed_veh_index = fixed_veh_index
         self.fixed_vehID = list(self._vehID_list)[fixed_veh_index]
         self._cur_data_index = 0
-        self.route_data = route_data_save.route_data_load(self._sumo_map + "/route")
+        length_dir = route_data_save.format_length_dir(route_length)
+        self.route_data = route_data_save.route_data_load(
+            self._sumo_map + "/route/" + length_dir
+        )
         if self._is_random_route:
             self.np_random.shuffle(self.route_data)
         self._data_num = len(self.route_data)
