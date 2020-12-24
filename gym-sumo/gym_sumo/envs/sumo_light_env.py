@@ -70,10 +70,10 @@ class SumoLightEnv(BaseEnv):
             vehID = list(self._vehID_list)[0]
         v_list = self.traci_connect.vehicle.getIDList()
         pos = (-1.0, -1.0)
-        cur_edgeID = ""
+        route_target_edgeID = ""
         if vehID in v_list:
             pos = self.traci_connect.vehicle.getPosition(vehID)
-            cur_edgeID = self.traci_connect.vehicle.getRoadID(vehID)
+            route_target_edgeID = self._sumo_util.get_target(vehID=vehID)
         goal_pos = self._goal[vehID].get("pos", [0.0, 0.0])
         pre_to_goal_length = self._graph._calc_distance(pos, goal_pos)
         is_take = True
@@ -86,9 +86,9 @@ class SumoLightEnv(BaseEnv):
 
         removed_list = self._removed_vehID_list
         acheived_list = self.traci_connect.simulation.getArrivedIDList()
-        is_arrived = (
-            vehID in acheived_list and cur_edgeID == self._vehID_list[vehID]["goal"]
-        )
+
+        goal_edgeID = self._vehID_list[vehID]["goal"]
+        is_arrived = vehID in acheived_list and route_target_edgeID == goal_edgeID
 
         info = INFO.copy()
         info["is_take"] = is_take
@@ -97,7 +97,7 @@ class SumoLightEnv(BaseEnv):
         info["cur_sm_step"] = self.traci_connect.simulation.getTime()
         info["is_arrived"] = is_arrived
         info["needs_reset"] = info["is_removed"]
-        info["goal"] = self._vehID_list[vehID]["goal"]
+        info["goal"] = goal_edgeID
 
         if not info["needs_reset"]:
             info["cur_lane"] = self.traci_connect.vehicle.getLaneID(vehID)
