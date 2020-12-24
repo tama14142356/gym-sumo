@@ -8,7 +8,7 @@ import json
 import pathlib
 
 
-def main(is_msg=True, monitor=True, outdir="./video"):
+def main(episode, is_msg=True, monitor=True, outdir="./video"):
     mode = "gui" if monitor else "cui"
     kwargs = {
         "step_length": 1,
@@ -31,7 +31,6 @@ def main(is_msg=True, monitor=True, outdir="./video"):
     logging.basicConfig(level=logging.INFO, filename=log_file_name)
     logger = logging.getLogger(__name__)
 
-    episode = 100
     arrive_num = 0
     not_arrived_list = []
     for i in range(episode):
@@ -94,9 +93,10 @@ if __name__ == "__main__":
     parser.add_argument("--outdir", type=str, default="./video/test")
     parser.add_argument("--no-monitor", action="store_true", default=False)
     parser.add_argument("--no-message", action="store_true", default=False)
+    parser.add_argument("--episodes", type=int, default=100000)
 
     args = parser.parse_args()
 
     outdir = prepare_dir(args, args.outdir)
 
-    main((not args.no_message), (not args.no_monitor), outdir)
+    main(args.episode, (not args.no_message), (not args.no_monitor), outdir)
