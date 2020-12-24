@@ -39,6 +39,7 @@ class SumoLightEnv(BaseEnv):
         debug_view=False,
         is_random_route=True,
         road_freq=0,
+        is_auto=False,
     ):
         super().__init__(
             isgraph,
@@ -61,6 +62,7 @@ class SumoLightEnv(BaseEnv):
         )
         self.is_init = True
         self.road_freq = road_freq
+        self._is_auto = is_auto
 
     def step(self, action, vehID=""):
         # determine next step action, affect environment
@@ -74,7 +76,9 @@ class SumoLightEnv(BaseEnv):
             cur_edgeID = self.traci_connect.vehicle.getRoadID(vehID)
         goal_pos = self._goal[vehID].get("pos", [0.0, 0.0])
         pre_to_goal_length = self._graph._calc_distance(pos, goal_pos)
-        is_take = self._take_action(vehID, action)
+        is_take = True
+        if not self._is_auto:
+            is_take = self._take_action(vehID, action)
         if self._mode == "gui":
             self.screenshot_and_simulation_step(action)
         else:

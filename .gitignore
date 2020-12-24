@@ -10,7 +10,7 @@
 
 # result
 **results**
-**video**
+**/video/**
 
 # text, log or error file
 *.log

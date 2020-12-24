@@ -100,11 +100,11 @@ class SumoBaseEnv(gym.Env):
     ):
         super().__init__()
         sumo_config = "sumo_configs/" + AREA[area]
-        sumo_map = os.path.join(os.path.dirname(__file__), sumo_config)
-        self._netpath = os.path.join(sumo_map, "osm.net.xml")
-        self._sumocfg = os.path.join(sumo_map, "osm.sumocfg")
+        self._sumo_map = os.path.join(os.path.dirname(__file__), sumo_config)
+        self._netpath = os.path.join(self._sumo_map, "osm.net.xml")
+        self._sumocfg = os.path.join(self._sumo_map, "osm.sumocfg")
         if debug_view:
-            self._sumocfg = os.path.join(sumo_map, "osm_debug.sumocfg")
+            self._sumocfg = os.path.join(self._sumo_map, "osm_debug.sumocfg")
         # set 1 video frame / 1s
         self.metadata = {
             "render.modes": ["human", "rgb_array"],
@@ -134,10 +134,25 @@ class SumoBaseEnv(gym.Env):
         self._sumo_util = SumoUtil(self._network, DIRECTION, self.traci_connect)
         self._add_all_car()
 
+    def initiallize_list(self, is_fix_target=True):
+        self._vehID_list.clear()
+        self._removed_vehID_list.clear()
+        self._goal.clear()
+        self._route_list.clear()
+        if not self.is_close():
+            routeID_list = self.traci_connect.route.getIDList()
+            for routeID in routeID_list:
+                self._reset_routeID(routeID=routeID, is_set_veh=False)
+        if is_fix_target:
+            self._start_edge_list.clear()
+
     def render(self, mode="human"):
         if self._mode == "gui":
             if mode == "rgb_array":
                 return self.np_img
+
+    def is_close(self):
+        return self.traci_connect._socket is None
 
     def close(self):
         try:
@@ -319,15 +334,7 @@ class SumoBaseEnv(gym.Env):
     def _reposition_car(self, is_fix_target=True):
         self.traci_connect.simulationStep()
         v_list = self.traci_connect.vehicle.getIDList()
-        self._vehID_list.clear()
-        self._removed_vehID_list.clear()
-        self._goal.clear()
-        self._route_list.clear()
-        routeID_list = self.traci_connect.route.getIDList()
-        for routeID in routeID_list:
-            self._reset_routeID(routeID=routeID, is_set_veh=False)
-        if is_fix_target:
-            self._start_edge_list.clear()
+        self.initiallize_list(is_fix_target)
         for i in range(self._carnum):
             vehID = "veh{}".format(i)
             if vehID in v_list:
