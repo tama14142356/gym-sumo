@@ -3,6 +3,8 @@ import gym_sumo
 
 import gym_sumo.envs.sumo_base_env as base
 
+# from IPython import embed  # for debug
+
 STRAIGHT = base.STRAIGHT
 LEFT = base.LEFT
 RIGHT = base.RIGHT
@@ -22,6 +24,7 @@ kwargs = {
     "carnum": 1,
     "seed": 5,
     # "debug_view": True,
+    "road_freq": 100,
 }
 
 env = gym.make("sumo-light-v0", **kwargs)
@@ -44,7 +47,7 @@ for i in range(8, 76):
 for i in range(76, 81):
     action_seed_5[i] = RIGHT
 cur_sm_time = 0.0
-episode = 2
+episode = 10
 for i in range(episode):
     step = 0
     observation = env.reset()
