@@ -98,6 +98,7 @@ class SumoLightEnv(BaseEnv):
         info["is_arrived"] = is_arrived
         info["needs_reset"] = info["is_removed"]
         info["goal"] = goal_edgeID
+        info["road_num"] = self.road_num
 
         if not info["needs_reset"]:
             info["cur_lane"] = self.traci_connect.vehicle.getLaneID(vehID)

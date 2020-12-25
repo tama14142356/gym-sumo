@@ -61,6 +61,7 @@ INFO = {
     "speed": -1.0,
     "pos": (-1.0, -1.0),
     "driving_len": -1.0,
+    "road_num": MIN_ROAD_NUM,
 }
 
 # vehicle signal number
@@ -409,24 +410,14 @@ class SumoBaseEnv(gym.Env):
             )[1]
             to_edgeID = self._network.get_edgeID(to_edge_index)
         route = [to_edgeID]
-        exclude_edge = []
         while True:
             from_edgeID_list = self._network.get_from_edgeIDs(to_edgeID)
-            from_edgeID_list = [e for e in from_edgeID_list if e not in exclude_edge]
             if len(from_edgeID_list) <= 0:
-                if len(route) <= 1:
-                    break
-                if to_edgeID not in exclude_edge:
-                    exclude_edge.append(to_edgeID)
-                    route.pop(0)
-                    if to_edgeID not in route:
-                        cur_road_num -= 1
-                    to_edgeID = route[0]
-                continue
+                break
             to_edgeID = self.np_random.choice(from_edgeID_list)
             if to_edgeID not in route:
                 cur_road_num += 1
-            route.insert(0, to_edgeID)
+                route.insert(0, to_edgeID)
             if cur_road_num >= road_num:
                 break
         from_edge_index = self._network.get_edge_index(to_edgeID)
