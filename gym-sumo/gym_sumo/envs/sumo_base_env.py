@@ -314,7 +314,8 @@ class SumoBaseEnv(gym.Env):
             if is_fix_target:
                 routeID, route, route_info = self._generate_route(index, goal_edgeID)
             start_edgeID, goal_edgeID = route[0], route[len(route) - 1]
-        self.traci_connect.route.add(routeID, route)
+        if routeID not in route_list:
+            self.traci_connect.route.add(routeID, route)
         self._route_list[routeID] = route_info
         veh_element = {"route": routeID, "start": start_edgeID, "goal": goal_edgeID}
         self._vehID_list[vehID] = veh_element
@@ -350,27 +351,43 @@ class SumoBaseEnv(gym.Env):
         exclude_list = []
         routeID = "route{}".format(index)
         is_random = self._is_random_route
-        is_infinite, is_find = (index == 0), False
+        road_num = self.road_num if is_random else -1
         find_num, max_find_num = 0, 10
         routeID_list = self.traci_connect.route.getIDList()
         route_num = len(routeID_list)
-        while not is_find:
-            if not is_infinite and find_num >= max_find_num and route_num > 0:
-                other_routeID = self.np_random.choice(routeID_list)
-                if to_edgeID != "":
-                    tmp_list = self._sumo_util.get_routeID_list_from_target(to_edgeID)
-                    if other_routeID not in tmp_list and len(tmp_list) > 0:
-                        other_routeID = self.np_random.choice(tmp_list)
-                route = self.traci_connect.route.getEdges(other_routeID)
-                route_info = self._sumo_util._get_route_info(
-                    routeID=other_routeID, route_info_list=self._route_list
-                )
-                break
+        is_infinite, is_find = route_num <= 0, False
+        while True:
             find_route_info = self._find_route(exclude_list, to_edgeID, is_random)
             is_find, exclude, route_info, route = find_route_info
             if exclude not in exclude_list:
                 exclude_list.append(exclude)
             find_num += 1
+            if is_find:
+                break
+            if find_num > max_find_num:
+                if is_infinite:
+                    if len(route) > 0:
+                        break
+                    else:
+                        continue
+                routeID = (
+                    "route{}".format(route_num)
+                    if is_random
+                    else self.np_random.choice(routeID_list)
+                )
+                if to_edgeID != "":
+                    tmp_list = self._sumo_util.get_routeID_list_from_target(
+                        to_edgeID, road_num
+                    )
+                    if routeID not in tmp_list and len(tmp_list) > 0:
+                        routeID = self.np_random.choice(tmp_list)
+                if not is_random or routeID in routeID_list:
+                    route = self.traci_connect.route.getEdges(routeID)
+                    route_info = self._sumo_util._get_route_info(
+                        routeID=routeID, route_info_list=self._route_list
+                    )
+                    self.road_num = road_num if is_random else self.road_num
+                break
         return routeID, route, route_info
 
     def _find_route(self, exclude=[], to_edgeID="", is_random=False):
@@ -400,7 +417,7 @@ class SumoBaseEnv(gym.Env):
 
     def _find_route_random(self, exclude=[], to_edgeID=""):
         num_edge = self._graph.get_num("edge_normal") - 1
-        road_num = self.road_num
+        max_road_num = self.road_num
         from_edge_index, to_edge_index, is_find = -1, -1, True
         cur_road_num = 1
         to_edge_index = self._network.get_edge_index(to_edgeID)
@@ -410,17 +427,17 @@ class SumoBaseEnv(gym.Env):
             )[1]
             to_edgeID = self._network.get_edgeID(to_edge_index)
         route = [to_edgeID]
-        while True:
-            from_edgeID_list = self._network.get_from_edgeIDs(to_edgeID)
+        from_edgeID = to_edgeID
+        for road_num in range(1, max_road_num):
+            from_edgeID_list = self._network.get_from_edgeIDs(from_edgeID)
+            from_edgeID_list = [e for e in from_edgeID_list if e not in route]
             if len(from_edgeID_list) <= 0:
                 break
-            to_edgeID = self.np_random.choice(from_edgeID_list)
-            if to_edgeID not in route:
-                cur_road_num += 1
-                route.insert(0, to_edgeID)
-            if cur_road_num >= road_num:
-                break
-        from_edge_index = self._network.get_edge_index(to_edgeID)
+            from_edgeID = self.np_random.choice(from_edgeID_list)
+            route.insert(0, from_edgeID)
+        cur_road_num = len(route)
+        is_find = cur_road_num == max_road_num
+        from_edge_index = self._network.get_edge_index(from_edgeID)
         edges = (from_edge_index, to_edge_index)
         route_info = self._sumo_util._get_route_info(route_edges=route)
         self.road_num = cur_road_num

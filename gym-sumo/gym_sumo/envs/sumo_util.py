@@ -10,12 +10,15 @@ class SumoUtil:
         self.traci_connect = traci_connect
         self._step_length = self.traci_connect.simulation.getDeltaT()
 
-    def get_routeID_list_from_target(self, target_edgeID):
+    def get_routeID_list_from_target(self, target_edgeID, road_num=-1):
         routeID_list = self.traci_connect.route.getIDList()
         routeID_list_target = []
         for routeID in routeID_list:
-            target = self.get_target(routeID=routeID)
-            if target == target_edgeID:
+            edge_list = self.traci_connect.route.getEdges(routeID)
+            edge_num = len(edge_list)
+            target = edge_list[edge_num - 1]
+            is_equal_num = road_num == -1 or road_num == edge_num
+            if target == target_edgeID and is_equal_num:
                 routeID_list_target.append(routeID)
         return routeID_list_target
 
