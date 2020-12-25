@@ -137,8 +137,8 @@ class SumoBaseEnv(gym.Env):
         tmp_dict = {}
         goal_edgeID = self._vehID_list["veh0"]["goal"]
         print("goal: ", goal_edgeID)
-        result = self._get_route_list(goal_edgeID, 100, tmp_dict)
-        print("result: ", result)
+        result = self._get_route_list(goal_edgeID, 10, tmp_dict)
+        # print("result: ", result)
         embed()
 
     def initiallize_list(self, is_fix_target=True):
@@ -442,19 +442,20 @@ class SumoBaseEnv(gym.Env):
         self.road_num = cur_road_num
         return is_find, edges, route_info, route
 
-    def _get_route_list(self, start_edgeID, max_road_num, route_dict={}):
-        route_list = self._create_route_list(start_edgeID, max_road_num, route_dict)
+    def _get_route_list(self, end_edgeID, max_road_num, route_dict={}):
+        route_list = self._create_route_list(end_edgeID, max_road_num, route_dict)
         return route_list
 
-    def _create_route_list(self, start_edgeID, max_road_num, route_dict):
-        if start_edgeID in list(route_dict):
-            if max_road_num in route_dict[start_edgeID]:
-                return route_dict[start_edgeID][max_road_num]
-        from_edgeID_list = self._network.get_from_edgeIDs(start_edgeID)
-        if max_road_num <= 0 or len(from_edgeID_list) <= 0:
-            route_info = {max_road_num: [[]]}
-            route_dict[start_edgeID] = route_info
-            return [[]]
+    def _create_route_list(self, end_edgeID, max_road_num, route_dict={}):
+        if end_edgeID in list(route_dict):
+            if max_road_num in route_dict[end_edgeID]:
+                return route_dict[end_edgeID][max_road_num]
+        from_edgeID_list = self._network.get_from_edgeIDs(end_edgeID)
+        if max_road_num <= 1 or len(from_edgeID_list) <= 0:
+            route_list = [[end_edgeID]] if max_road_num == 1 else [[]]
+            route_info = {max_road_num: copy.deepcopy(route_list)}
+            route_dict[end_edgeID] = route_info
+            return route_list
         route_list = []
         for from_edgeID in from_edgeID_list:
             from_route_list = self._create_route_list(
@@ -462,10 +463,15 @@ class SumoBaseEnv(gym.Env):
             )
             for from_route in from_route_list:
                 from_route_copy = from_route.copy()
-                from_route_copy.insert(0, from_edgeID)
-                route_list.append(from_route_copy)
+                if end_edgeID in from_route_copy:
+                    continue
+                from_route_copy.append(end_edgeID)
+                edge_num = len(from_route_copy)
+                if edge_num == max_road_num and from_route_copy not in route_list:
+                    route_list.append(from_route_copy)
+        route_list = route_list if len(route_list) > 0 else [[]]
         route_info = {max_road_num: copy.deepcopy(route_list)}
-        route_dict[start_edgeID] = route_info
+        route_dict[end_edgeID] = route_info
         return route_list
 
     def screenshot_and_simulation_step(self, action=-1, vehID=""):
