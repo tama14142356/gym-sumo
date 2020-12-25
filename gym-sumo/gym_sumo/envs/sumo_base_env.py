@@ -2,13 +2,14 @@ import gym
 from gym import error
 from gym.utils import seeding
 
+import copy
 import os
 import sys
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import tempfile
 
-# from IPython import embed  # for debug
+from IPython import embed  # for debug
 
 from ._graph import Graph
 from ._util import random_tuple, get_base_vector
@@ -133,6 +134,12 @@ class SumoBaseEnv(gym.Env):
         self._init_simulator(mode, step_length=step_length)
         self._sumo_util = SumoUtil(self._network, DIRECTION, self.traci_connect)
         self._add_all_car()
+        tmp_dict = {}
+        goal_edgeID = self._vehID_list["veh0"]["goal"]
+        print("goal: ", goal_edgeID)
+        result = self._get_route_list(goal_edgeID, 100, tmp_dict)
+        print("result: ", result)
+        embed()
 
     def initiallize_list(self, is_fix_target=True):
         self._vehID_list.clear()
@@ -434,6 +441,32 @@ class SumoBaseEnv(gym.Env):
         route_info = self._sumo_util._get_route_info(route_edges=route)
         self.road_num = cur_road_num
         return is_find, edges, route_info, route
+
+    def _get_route_list(self, start_edgeID, max_road_num, route_dict={}):
+        route_list = self._create_route_list(start_edgeID, max_road_num, route_dict)
+        return route_list
+
+    def _create_route_list(self, start_edgeID, max_road_num, route_dict):
+        if start_edgeID in list(route_dict):
+            if max_road_num in route_dict[start_edgeID]:
+                return route_dict[start_edgeID][max_road_num]
+        from_edgeID_list = self._network.get_from_edgeIDs(start_edgeID)
+        if max_road_num <= 0 or len(from_edgeID_list) <= 0:
+            route_info = {max_road_num: [[]]}
+            route_dict[start_edgeID] = route_info
+            return [[]]
+        route_list = []
+        for from_edgeID in from_edgeID_list:
+            from_route_list = self._create_route_list(
+                from_edgeID, max_road_num - 1, route_dict
+            )
+            for from_route in from_route_list:
+                from_route_copy = from_route.copy()
+                from_route_copy.insert(0, from_edgeID)
+                route_list.append(from_route_copy)
+        route_info = {max_road_num: copy.deepcopy(route_list)}
+        route_dict[start_edgeID] = route_info
+        return route_list
 
     def screenshot_and_simulation_step(self, action=-1, vehID=""):
         with tempfile.TemporaryDirectory() as tmpdir:
