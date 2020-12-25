@@ -198,7 +198,7 @@ class SumoLightEnv(BaseEnv):
         return np.array(flatten_list(observation), dtype=np.float32)
 
     def _take_action(self, vehID, action):
-        is_take = False
+        is_take, is_set_speed = False, True
         v_list = self.traci_connect.vehicle.getIDList()
         removed_list = self._removed_vehID_list
         if vehID not in v_list or vehID in removed_list:
@@ -213,16 +213,16 @@ class SumoLightEnv(BaseEnv):
             future_accel = accel if accel_rate >= 0 else decel
             future_accel *= self._step_length
             future_speed = cur_speed + future_accel
-            is_take = future_speed >= 0.0
-            future_speed = future_speed if is_take else 0.0
+            is_set_speed = future_speed >= 0.0
+            future_speed = future_speed if is_set_speed else 0.0
             self.traci_connect.vehicle.setSpeed(vehID, future_speed)
             self._remove_car_if_necessary(vehID, False)
-            return is_take
-        direction = DIRECTION[action]
+        pre_direction = self._vehID_list[vehID].get("want_turn_direct", DIRECTION[0])
+        direction = DIRECTION[action] if action <= DIRECT_FLAG else pre_direction
         self._vehID_list[vehID]["want_turn_direct"] = direction
         is_take = self._sumo_util.turn(
             vehID, self._vehID_list[vehID], direction, future_speed
         )
         self._reset_routeID(vehID)
         self._remove_car_if_necessary(vehID, False)
-        return is_take
+        return is_take and is_set_speed
