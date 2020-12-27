@@ -1,17 +1,17 @@
 import gym
 import gym_sumo
 
-import gym_sumo.envs.sumo_base_env as base
+import gym_sumo.envs.constans as gc
 
 # from IPython import embed  # for debug
 
-STRAIGHT = base.STRAIGHT
-LEFT = base.LEFT
-RIGHT = base.RIGHT
-PAR_LEFT = base.PAR_LEFT
-PAR_RIGHT = base.PAR_RIGHT
-UTURN = base.UTURN
-direction = base.DIRECTION
+STRAIGHT = gc.STRAIGHT
+LEFT = gc.LEFT
+RIGHT = gc.RIGHT
+PAR_LEFT = gc.PAR_LEFT
+PAR_RIGHT = gc.PAR_RIGHT
+UTURN = gc.UTURN
+direction = gc.DIRECTION
 
 # seed=3: debug用
 # seed=1: turn タイミング調査済み
@@ -24,10 +24,15 @@ kwargs = {
     "carnum": 1,
     "seed": 5,
     # "debug_view": True,
+    # "is_random_route": False,
     "road_freq": 100,
+    "is_length": True,
+    # "is_road_num": True,
+    # "is_abs_length": True,
+    "max_length": 100.0,
 }
 
-env = gym.make("sumo-light-v0", **kwargs)
+env = gym.make("sumo-light-v1", **kwargs)
 # env = gym.make("sumo-fix-v0", **kwargs)
 env = gym.wrappers.Monitor(
     env, "./video", force=True, video_callable=(lambda e: e % 1 == 0)

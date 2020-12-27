@@ -4,7 +4,7 @@ import pickle
 import pprint
 
 from gym import error
-import gym_sumo.envs.sumo_base_env as base
+from gym_sumo.envs import constans as gc
 from gym_sumo.envs.sumo_graph import SumoGraph
 
 from tqdm import tqdm
@@ -18,7 +18,7 @@ except ImportError as e:
     raise error.DependencyNotInstalled("{}.".format(e) + MESSAGE_HINT)
 
 
-AREA = base.AREA
+AREA = gc.AREA
 CONFIG_RELATIVE_PATH = "sumo_configs/"
 DEFAULT_FILE_NAME = "route_data"
 PICKLE_EXTEND = ".binaryfile"
@@ -44,6 +44,18 @@ LOAD_DEFAULT_DIR = (
 )
 
 
+def get_dir_path(max_data, def_len, length):
+    base_dir = ROUTE_DEFAULT_DIR
+    data_dir = format_data_num_dir(max_data)
+    def_dir = format_definition_length_dir(def_len)
+    len_dir = format_length_dir(length)
+    return str(base_dir / data_dir / def_dir / len_dir)
+
+
+def get_def_len(is_end, is_start):
+    return [is_end, is_start]
+
+
 def format_length_dir(length):
     min_length, max_length = length
     return "{}-{}_length".format(min_length, max_length)
@@ -53,7 +65,8 @@ def format_data_num_dir(data_num):
     return "{}_data".format(data_num)
 
 
-def format_definition_length_dir(is_end, is_start):
+def format_definition_length_dir(def_len):
+    is_end, is_start = def_len
     start = "start" if is_start else "end"
     end = "end" if is_end else "start"
     return start + "-" + end
@@ -88,6 +101,10 @@ def route_data_load(file_path=str(LOAD_DEFAULT_DIR), in_length=False, is_all=Fal
             if d.get("abs_length") and d.get("start") and d.get("end")
         ]
         return start_end_list
+    return get_start_end_list(data)
+
+
+def get_start_end_list(data):
     start_end_list = [
         [d.get("start"), d.get("end")] for d in data if d.get("start") and d.get("end")
     ]
@@ -116,6 +133,13 @@ def get_pos_edgeID(traci_conn, network, edgeID, lane_index=0):
     return start_pos, end_pos
 
 
+def convert_pos(start_pos, end_pos, def_len):
+    is_end, is_start = def_len
+    start = start_pos if is_start else end_pos
+    end = end_pos if is_end else start_pos
+    return start, end
+
+
 def calc_distance(from_pos, to_pos):
     return float(
         np.sqrt((to_pos[0] - from_pos[0]) ** 2 + (to_pos[1] - from_pos[1]) ** 2)
@@ -131,20 +155,15 @@ def main(area, file_name, length, max_data, is_end=True, is_start=False):
     net_path = sumo_config_abs_path / net_file_name
     network = SumoGraph(str(net_path))
 
-    route_dir_path = (
-        ROUTE_DEFAULT_DIR
-        / format_data_num_dir(max_data)
-        / format_definition_length_dir(is_end, is_start)
-        / format_length_dir(length)
-    )
-    pathlib.os.makedirs(str(route_dir_path), exist_ok=True)
+    def_len = get_def_len(is_end, is_start)
+    route_dir_path = get_dir_path(max_data, def_len, length)
+    pathlib.os.makedirs(route_dir_path, exist_ok=True)
 
     edgeID_list = network.get_all_edgeID_list(False)
     edge_info_list = {}
     for edgeID in edgeID_list:
         start_pos, end_pos = get_pos_edgeID(traci_conn, network, edgeID)
-        start = start_pos if is_start else end_pos
-        end = end_pos if is_end else start_pos
+        start, end = convert_pos(start_pos, end_pos, def_len)
         edge_info = {"start": list(start), "end": list(end)}
         edge_info_list[edgeID] = edge_info
 
@@ -184,7 +203,7 @@ def main(area, file_name, length, max_data, is_end=True, is_start=False):
             break
     route_data_list_sorted = sorted(route_data_list, key=lambda x: x["abs_length"])
     print("saving...")
-    route_data_save(route_data_list_sorted, str(route_dir_path))
+    route_data_save(route_data_list_sorted, route_dir_path)
     try:
         traci_conn.close()
     except traci_conn.exceptions.FatalTraCIError as ci:

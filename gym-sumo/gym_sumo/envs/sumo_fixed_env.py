@@ -1,4 +1,5 @@
 from .sumo_light_env import SumoLightEnv as LightEnv
+from gym_sumo.envs.constans import MAX_LENGTH
 
 from traci import constants as tc
 
@@ -20,12 +21,18 @@ class SumoFixedEnv(LightEnv):
         label="default",
         debug_view=False,
         is_random_route=True,
-        road_freq=100,
+        max_length=MAX_LENGTH,
+        is_abs_length=False,
+        is_length=False,
+        is_road_num=False,
+        is_end=True,
+        is_start=False,
+        road_freq=0,
+        road_ratio=1.0,
         is_auto=False,
         route_length=[1000.0, 2000.0],
+        data_num=1000,
         max_data=100000,
-        is_start=False,
-        is_end=True,
         fixed_veh_index=0,
     ):
         super().__init__(
@@ -39,20 +46,26 @@ class SumoFixedEnv(LightEnv):
             label,
             debug_view,
             is_random_route,
+            max_length,
+            is_abs_length,
+            is_length,
+            is_road_num,
+            is_end,
+            is_start,
             road_freq,
+            road_ratio,
             is_auto,
         )
         self.fixed_veh_index = fixed_veh_index
         self.fixed_vehID = list(self._vehID_list)[fixed_veh_index]
         self._cur_data_index = 0
-        length_dir = route_data_save.format_length_dir(route_length)
-        data_dir = route_data_save.format_data_num_dir(max_data) + "/"
-        def_dir = route_data_save.format_definition_length_dir(is_end, is_start) + "/"
-        load_dir = self._sumo_map + "/route/" + data_dir + def_dir + length_dir
-        self.route_data = route_data_save.route_data_load(load_dir)
+        def_len = route_data_save.get_def_len(is_end, is_start)
+        route_data_dir = route_data_save.get_dir_path(max_data, def_len, route_length)
+        route_data = route_data_save.route_data_load(route_data_dir)
         if self._is_random_route:
-            self.np_random.shuffle(self.route_data)
-        self._data_num = len(self.route_data)
+            self.np_random.shuffle(route_data)
+        self.route_data = route_data[:data_num]
+        self._data_num = data_num
         self._add_or_reposition_fix_car()
 
     def _add_or_reposition_fix_car(self):

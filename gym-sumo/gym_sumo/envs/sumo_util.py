@@ -1,24 +1,39 @@
 import copy
 
+from gym_sumo.envs.route_data_save import get_pos_edgeID, convert_pos, get_def_len
+from gym_sumo.envs._util import _get_vector
+
 # from IPython import embed  # for debug
 
 
 class SumoUtil:
-    def __init__(self, sumo_network, direction_list, traci_connect):
+    def __init__(self, sumo_network, direction_list, traci_connect, is_end, is_start):
         self._network = sumo_network
         self._direction_list = direction_list
         self.traci_connect = traci_connect
         self._step_length = self.traci_connect.simulation.getDeltaT()
+        self.is_end = is_end
+        self.is_start = is_start
+        self.def_len = get_def_len(is_end, is_start)
 
-    def get_routeID_list_from_target(self, target_edgeID, road_num=-1):
+    def get_routeID_list_from_target(
+        self, target_edgeID, route_info_list={}, road_num=-1, length=-1.0, is_abs=False
+    ):
         routeID_list = self.traci_connect.route.getIDList()
         routeID_list_target = []
         for routeID in routeID_list:
-            edge_list = self.traci_connect.route.getEdges(routeID)
-            edge_num = len(edge_list)
-            target = edge_list[edge_num - 1]
-            is_equal_num = road_num == -1 or road_num == edge_num
-            if target == target_edgeID and is_equal_num:
+            route_info = self._get_route_info(
+                routeID=routeID, route_info_list=route_info_list
+            )
+            edge_num = route_info["edge_num"]
+            route_length = route_info["length"]
+            abs_length = route_info["abs_length"]
+            target = self.get_target(routeID=routeID)
+            is_equal_num = road_num < 0 or road_num == edge_num
+            is_length = length < 0 or route_length <= length
+            is_abs_length = length < 0 or abs_length <= length
+            is_equal_length = is_abs_length if is_abs else is_length
+            if target == target_edgeID and is_equal_num and is_equal_length:
                 routeID_list_target.append(routeID)
         return routeID_list_target
 
@@ -238,6 +253,14 @@ class SumoUtil:
             tr_ins.vehicle.setRoute(vehID, new_edge_list)
         return could_turn
 
+    def get_abs_length(self, start_edgeID, end_edgeID):
+        start_pos = get_pos_edgeID(self.traci_connect, self._network, start_edgeID)
+        end_pos = get_pos_edgeID(self.traci_connect, self._network, end_edgeID)
+        start, _ = convert_pos(start_pos[0], start_pos[1], self.def_len)
+        _, end = convert_pos(end_pos[0], end_pos[1], self.def_len)
+        abs_length = abs(_get_vector(start, end, is_complex=True))
+        return abs_length
+
     def _get_route_info(self, vehID="", routeID="", route_edges=[], route_info_list={}):
         route = []
         if len(route_edges) > 0:
@@ -250,6 +273,10 @@ class SumoUtil:
             route = self.traci_connect.vehicle.getRoute(vehID)
         travel_time, length = 0.0, 0.0
         num = len(route)
+        abs_length = 0.0
+        if num > 0:
+            start_edgeID, end_edgeID = route[0], route[num - 1]
+            abs_length = self.get_abs_length(start_edgeID, end_edgeID)
         for i, edgeID in enumerate(route):
             length += self._network.get_road_length(edgeID)
             # travel_time = length / max_speed on the laneID(traci.lane.getMaxSpeed())
@@ -264,5 +291,11 @@ class SumoUtil:
                 length += self._network.get_road_length(laneID=via_laneID)
                 travel_time += self._network.get_road_travel_time(laneID=via_laneID)
         del route
-        route_info = {"length": length, "travel_time": travel_time, "cost": travel_time}
+        route_info = {
+            "length": length,
+            "travel_time": travel_time,
+            "cost": travel_time,
+            "abs_length": abs_length,
+            "edge_num": num,
+        }
         return route_info

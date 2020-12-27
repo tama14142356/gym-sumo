@@ -13,6 +13,7 @@ import tempfile
 from ._graph import Graph
 from ._util import random_tuple, get_base_vector
 from .sumo_util import SumoUtil
+from gym_sumo.envs import constans as gc
 
 MESSAGE_HINT = (
     "(HINT: you can install sumo or set the path for sumo library by reading README.md)"
@@ -22,65 +23,6 @@ try:
     from traci import constants as tc
 except ImportError as e:
     raise error.DependencyNotInstalled("{}.".format(e) + MESSAGE_HINT)
-
-
-AREA = ["nishiwaseda", "waseda_university"]
-# max length for route length
-MAX_LENGTH = 1000
-# road number of route
-MAX_ROAD_NUM = 20
-MIN_ROAD_NUM = 2
-# standard length for adding car
-SPOS = 10.5
-# standard speed (40km/h) for vehicle
-STANDARD_SPEED = 100.0 / 9.0
-# standard vehicle length(m)
-VEH_LEN = 5.0
-# vehicle direction
-STRAIGHT = 0
-UTURN = 1
-LEFT = 2
-PAR_LEFT = 3
-RIGHT = 4
-PAR_RIGHT = 5
-
-DIRECTION = ["s", "T", "l", "L", "r", "R"]
-RENDER_TEXT = ["STRAIGHT", "UTURN", "LEFT", "PAR_LEFT", "RIGHT", "PAR_RIGHT"]
-
-INFO = {
-    "is_take": False,
-    "is_removed": False,
-    "cur_step": -1.0,
-    "cur_sm_step": -1.0,
-    "is_arrived": False,
-    "needs_reset": False,
-    "goal": {},
-    "cur_lane": "",
-    "cur_lane_pos": -1.0,
-    "lane_len": -1.0,
-    "speed": -1.0,
-    "pos": (-1.0, -1.0),
-    "driving_len": -1.0,
-    "road_num": MIN_ROAD_NUM,
-}
-
-# vehicle signal number
-VEH_SIGNALS = {
-    0: "VEH_SIGNAL_BLINKER_RIGHT",
-    1: "VEH_SIGNAL_BLINKER_LEFT",
-    2: "VEH_SIGNAL_BLINKER_EMERGENCY",
-    3: "VEH_SIGNAL_BRAKELIGHT",
-    4: "VEH_SIGNAL_FRONTLIGHT",
-    5: "VEH_SIGNAL_FOGLIGHT",
-    6: "VEH_SIGNAL_HIGHBEAM",
-    7: "VEH_SIGNAL_BACKDRIVE",
-    8: "VEH_SIGNAL_WIPER",
-    9: "VEH_SIGNAL_DOOR_OPEN_LEFT",
-    10: "VEH_SIGNAL_DOOR_OPEN_RIGHT",
-    11: "VEH_SIGNAL_EMERGENCY_BLUE",
-    12: "VEH_SIGNAL_EMERGENCY_RED",
-    13: "VEH_SIGNAL_EMERGENCY_YELLOW",
-}
 
 
 class SumoBaseEnv(gym.Env):
@@ -98,9 +40,15 @@ class SumoBaseEnv(gym.Env):
         label="default",
         debug_view=False,
         is_random_route=False,
+        max_length=gc.MAX_LENGTH,
+        is_abs_length=False,
+        is_length=False,
+        is_road_num=False,
+        is_end=True,
+        is_start=False,
     ):
         super().__init__()
-        sumo_config = "sumo_configs/" + AREA[area]
+        sumo_config = "sumo_configs/" + gc.AREA[area]
         self._sumo_map = os.path.join(os.path.dirname(__file__), sumo_config)
         self._netpath = os.path.join(self._sumo_map, "osm.net.xml")
         self._sumocfg = os.path.join(self._sumo_map, "osm.sumocfg")
@@ -112,8 +60,14 @@ class SumoBaseEnv(gym.Env):
             "video.frames_per_second": 1,
         }
         self.np_img = None
-        self._road_num = MIN_ROAD_NUM
-        self.action_text = RENDER_TEXT.copy()
+        self._road_num = gc.MIN_ROAD_NUM
+        self.max_length = max_length
+        self.is_abs_length = is_abs_length
+        self.is_length = is_length
+        self.is_road_num = is_road_num
+        self.is_end = is_end
+        self.is_start = is_start
+        self.action_text = gc.DIRECTION_TEXT.copy()
         self._cur_simulation_start = 0.0
         self._carnum = carnum
         self._mode = mode
@@ -132,7 +86,9 @@ class SumoBaseEnv(gym.Env):
         self._graph = Graph(self._netpath)
         self._network = self._graph.sumo_network
         self._init_simulator(mode, step_length=step_length)
-        self._sumo_util = SumoUtil(self._network, DIRECTION, self.traci_connect)
+        self._sumo_util = SumoUtil(
+            self._network, gc.DIRECTION, self.traci_connect, is_end, is_start
+        )
         self._add_all_car()
 
     def initiallize_list(self, is_fix_target=True):
@@ -175,14 +131,14 @@ class SumoBaseEnv(gym.Env):
     @property
     def road_num(self):
         if type(self._road_num) != int and type(self._road_num) != float:
-            self._road_num = int(MIN_ROAD_NUM)
+            self._road_num = int(gc.MIN_ROAD_NUM)
         return self._road_num
 
     @road_num.setter
     def road_num(self, length):
         if type(length) != int and type(length) != float:
             raise TypeError("invalid type")
-        self._road_num = min(int(length), MAX_ROAD_NUM)
+        self._road_num = min(int(length), gc.MAX_ROAD_NUM)
 
     def seed(self, seed=None):
         self._np_random, seed = seeding.np_random(seed)
@@ -330,7 +286,7 @@ class SumoBaseEnv(gym.Env):
         self._vehID_list[vehID]["start_pos"] = list(start_pos)
         is_load = vehID in self.traci_connect.vehicle.getIDList()
         self._vehID_list[vehID]["is_load"] = is_load
-        self._vehID_list[vehID]["want_turn_direct"] = DIRECTION[STRAIGHT]
+        self._vehID_list[vehID]["want_turn_direct"] = gc.DIRECTION[gc.STRAIGHT]
         self._reset_simulate_time()
 
     def _reposition_car(self, is_fix_target=True):
@@ -350,14 +306,12 @@ class SumoBaseEnv(gym.Env):
     def _generate_route(self, index, to_edgeID=""):
         exclude_list = []
         routeID = "route{}".format(index)
-        is_random = self._is_random_route
-        road_num = self.road_num if is_random else -1
         find_num, max_find_num = 0, 10
         routeID_list = self.traci_connect.route.getIDList()
         route_num = len(routeID_list)
         is_infinite, is_find = route_num <= 0, False
         while True:
-            find_route_info = self._find_route(exclude_list, to_edgeID, is_random)
+            find_route_info = self._find_route(exclude_list, to_edgeID)
             is_find, exclude, route_info, route = find_route_info
             if exclude not in exclude_list:
                 exclude_list.append(exclude)
@@ -365,61 +319,90 @@ class SumoBaseEnv(gym.Env):
             if is_find:
                 break
             if find_num > max_find_num:
+                route_edge_num = len(route)
                 if is_infinite:
-                    if len(route) > 0:
+                    if route_edge_num > 0:
                         break
                     else:
                         continue
-                routeID = (
-                    "route{}".format(route_num)
-                    if is_random
-                    else self.np_random.choice(routeID_list)
-                )
+                routeID = ""
                 if to_edgeID != "":
+                    road_num = self.road_num if self.is_road_num else -1
+                    is_abs = self.is_abs_length
+                    is_length_flag = self.is_length or is_abs
+                    length = self.max_length if is_length_flag else -1.0
                     tmp_list = self._sumo_util.get_routeID_list_from_target(
-                        to_edgeID, road_num
+                        to_edgeID, self._route_list, road_num, length, is_abs
                     )
-                    if routeID not in tmp_list and len(tmp_list) > 0:
+                    if len(tmp_list) <= 0 and route_edge_num > 0:
+                        routeID = "route{}".format(route_edge_num)
+                        break
+                    if len(tmp_list) > 0:
                         routeID = self.np_random.choice(tmp_list)
-                if not is_random or routeID in routeID_list:
-                    route = self.traci_connect.route.getEdges(routeID)
-                    route_info = self._sumo_util._get_route_info(
-                        routeID=routeID, route_info_list=self._route_list
-                    )
-                    self.road_num = road_num if is_random else self.road_num
+                if routeID == "":
+                    routeID = self.np_random.choice(routeID_list)
+                route = self.traci_connect.route.getEdges(routeID)
+                route_info = self._sumo_util._get_route_info(
+                    routeID=routeID, route_info_list=self._route_list
+                )
                 break
         return routeID, route, route_info
 
-    def _find_route(self, exclude=[], to_edgeID="", is_random=False):
+    def _find_route(self, exclude=[], to_edgeID=""):
+        is_random = self._is_random_route
         if is_random:
             return self._find_route_random(exclude, to_edgeID)
         num_edge = self._graph.get_num("edge_normal") - 1
         if to_edgeID == "":
-            edges = random_tuple(
+            from_edge_index, to_edge_index = random_tuple(
                 0, num_edge, 2, self._start_edge_list, exclude, self.np_random
             )
-            from_edgeID = self._network.get_edgeID(edges[0])
-            to_edgeID = self._network.get_edgeID(edges[1])
+            from_edgeID = self._network.get_edgeID(from_edge_index)
+            to_edgeID = self._network.get_edgeID(to_edge_index)
         else:
             to_edge_index = self._network.get_edge_index(to_edgeID)
             from_edge_index = random_tuple(
                 0, num_edge, 1, self._start_edge_list, exclude, self.np_random
             )[0]
             from_edgeID = self._network.get_edgeID(from_edge_index)
-            edges = (from_edge_index, to_edge_index)
+        edges = (from_edge_index, to_edge_index)
         if edges in exclude:
             return False, edges, None, []
         route = self.traci_connect.simulation.findRoute(from_edgeID, to_edgeID)
-        route_info = self._sumo_util._get_route_info(route_edges=route.edges)
-        length = route_info.get("length", MAX_LENGTH + 1)
-        is_find = len(route.edges) > 0 and length <= MAX_LENGTH
-        return is_find, edges, route_info, route.edges
+        route_edges = list(route.edges)
+        route_info = self._sumo_util._get_route_info(route_edges=route_edges)
+        edge_num = route_info["edge_num"]
+        length, abs_length = route_info["length"], route_info["abs_length"]
+        is_flag = self.is_road_num or self.is_length or self.is_abs_length
+        if not is_flag:
+            return True, edges, route_info, route_edges
+        if edge_num <= 0:
+            return False, edges, route_info, route_edges
+        while True:
+            length_flag = length <= self.max_length and self.is_length
+            abs_flag = abs_length <= self.max_length and self.is_abs_length
+            road_flag = edge_num == self.road_num and self.is_road_num
+            is_find = length_flag or abs_flag or road_flag
+            if is_find or edge_num <= 1:
+                break
+            route_edges = route_edges[1:]
+            route_info = self._sumo_util._get_route_info(route_edges=route_edges)
+            edge_num = route_info["edge_num"]
+            length, abs_length = route_info["length"], route_info["abs_length"]
+        from_edge_index = self._network.get_edge_index(route_edges[0])
+        edges = (from_edge_index, to_edge_index)
+        return is_find, edges, route_info, route_edges
 
     def _find_route_random(self, exclude=[], to_edgeID=""):
         num_edge = self._graph.get_num("edge_normal") - 1
-        max_road_num = self.road_num
-        from_edge_index, to_edge_index, is_find = -1, -1, True
-        cur_road_num = 1
+        is_length = self.is_length
+        is_abs_length = self.is_abs_length
+        is_road_num = self.is_road_num
+        is_flag = is_length or is_length or is_abs_length
+        max_length = self.max_length if is_length or is_abs_length else gc.MAX_LENGTH
+        max_road_num = self.road_num if is_road_num else gc.MAX_ROAD_NUM
+        is_find = True
+        road_num = 1 if is_road_num else 0
         to_edge_index = self._network.get_edge_index(to_edgeID)
         if to_edgeID == "":
             to_edge_index = random_tuple(
@@ -428,19 +411,43 @@ class SumoBaseEnv(gym.Env):
             to_edgeID = self._network.get_edgeID(to_edge_index)
         route = [to_edgeID]
         from_edgeID = to_edgeID
-        for road_num in range(1, max_road_num):
+        length = self._network.get_road_length(to_edgeID)
+        while True:
             from_edgeID_list = self._network.get_from_edgeIDs(from_edgeID)
             from_edgeID_list = [e for e in from_edgeID_list if e not in route]
             if len(from_edgeID_list) <= 0:
                 break
+            next_edgeID = from_edgeID
             from_edgeID = self.np_random.choice(from_edgeID_list)
+            if is_length:
+                length += self._network.get_road_length(from_edgeID)
+                lane_num = self._network.get_lane_number(from_edgeID)
+                for i in range(lane_num):
+                    via_laneID = self._network.get_via_laneID(
+                        from_edgeID, next_edgeID, i
+                    )
+                    if via_laneID != "":
+                        break
+                length += self._network.get_road_length(laneID=via_laneID)
+            elif is_abs_length:
+                length = self._sumo_util.get_abs_length(from_edgeID, to_edgeID)
+            else:
+                road_num += 1
+
+            flag = length >= max_length or road_num > max_road_num
+            if is_road_num:
+                flag = road_num > max_road_num
+            elif is_length or is_abs_length:
+                flag = length >= max_length
+            if flag:
+                break
             route.insert(0, from_edgeID)
-        cur_road_num = len(route)
-        is_find = cur_road_num == max_road_num
+
+        is_find = length >= max_length or road_num == max_road_num
+        is_find = is_find or (not is_flag)
         from_edge_index = self._network.get_edge_index(from_edgeID)
         edges = (from_edge_index, to_edge_index)
         route_info = self._sumo_util._get_route_info(route_edges=route)
-        self.road_num = cur_road_num
         return is_find, edges, route_info, route
 
     def screenshot_and_simulation_step(self, action=-1, vehID=""):

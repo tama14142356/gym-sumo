@@ -1,28 +1,12 @@
 from .sumo_base_env import SumoBaseEnv as BaseEnv
-from .sumo_base_env import DIRECTION, INFO
-from .sumo_base_env import STRAIGHT, UTURN, LEFT, PAR_LEFT, RIGHT, PAR_RIGHT
 from ._util import vector_decomposition, flatten_list, get_base_vector
+import gym_sumo.envs.constans as gc
 
 # from IPython import embed  # for debug
 from gym import spaces
 import numpy as np
 
 from traci import constants as tc
-
-# action
-NO_OP = STRAIGHT
-
-# flag
-DIRECT_FLAG = max(STRAIGHT, UTURN, LEFT, PAR_LEFT, RIGHT, PAR_RIGHT)
-
-# accel
-POS_LARGE = 6
-POS_SMALL = 7
-NEG_LARGE = 8
-NEG_SMALL = 9
-
-ACCEL = [1.0, 0.2, -1.0, -0.2]
-RENDER_TEXT = ["LARGE ACCEL", "SMALL ACCEL", "LARGE DECEL", "SMALL DECEL"]
 
 
 class SumoLightEnv(BaseEnv):
@@ -38,7 +22,14 @@ class SumoLightEnv(BaseEnv):
         label="default",
         debug_view=False,
         is_random_route=True,
+        max_length=gc.MAX_LENGTH,
+        is_abs_length=False,
+        is_length=False,
+        is_road_num=False,
+        is_end=True,
+        is_start=False,
         road_freq=0,
+        road_ratio=1.0,
         is_auto=False,
     ):
         super().__init__(
@@ -52,9 +43,15 @@ class SumoLightEnv(BaseEnv):
             label,
             debug_view,
             is_random_route,
+            max_length,
+            is_abs_length,
+            is_length,
+            is_road_num,
+            is_end,
+            is_start,
         )
         # 6action and accel, brake
-        self.action_text = self.action_text + RENDER_TEXT.copy()
+        self.action_text = gc.DIRECTION_TEXT + gc.ACCEL_TEXT
         self.action_space = spaces.Discrete(10)
         self.action_space.seed(seed)
         self.observation_space = spaces.Box(
@@ -62,6 +59,7 @@ class SumoLightEnv(BaseEnv):
         )
         self.is_init = True
         self.road_freq = road_freq
+        self.road_ratio = 1.0 + road_ratio
         self._is_auto = is_auto
 
     def step(self, action, vehID=""):
@@ -90,7 +88,7 @@ class SumoLightEnv(BaseEnv):
         goal_edgeID = self._vehID_list[vehID]["goal"]
         is_arrived = vehID in acheived_list and route_target_edgeID == goal_edgeID
 
-        info = INFO.copy()
+        info = gc.INFO.copy()
         info["is_take"] = is_take
         info["is_removed"] = vehID in removed_list or vehID in acheived_list
         info["cur_step"] = self._get_cur_step()
@@ -134,7 +132,8 @@ class SumoLightEnv(BaseEnv):
                 pre_steps = self.accumulate_steps
                 self.accumulate_steps += self._get_cur_step()
                 if pre_steps // road_freq < self.accumulate_steps // road_freq:
-                    self.road_num = self.road_num + 2
+                    self.road_num = self.road_num * self.road_ratio
+                    self.max_length = self.max_length * self.road_ratio
             self._reposition_car()
         self.is_init = False
         vehID = list(self._vehID_list)[0]
@@ -154,7 +153,7 @@ class SumoLightEnv(BaseEnv):
         start_pos = self._vehID_list[vehID].get("start_pos", [0.0, 0.0])
         relative_pos = list(np.array(goal_pos) - np.array(start_pos))
         start_vector, _ = self._get_vector_pos_edgeID(start_edgeID)
-        turn_direction = [0.0] * (DIRECT_FLAG + 1)
+        turn_direction = [0.0] * (gc.DIRECT_FLAG + 1)
         goal_vector = list(self._goal[vehID]["direct"])
         observation = [relative_pos, list(start_vector), turn_direction, goal_vector]
         return np.array(flatten_list(observation), dtype=np.float32)
@@ -167,7 +166,7 @@ class SumoLightEnv(BaseEnv):
         goal_edgeID = self._vehID_list[vehID]["goal"]
         directions = self._network.get_next_directions(goal_edgeID, 0)
         turn_direction = list(
-            map(lambda direct: 1.0 if direct in directions else 0.0, DIRECTION)
+            map(lambda direct: 1.0 if direct in directions else 0.0, gc.DIRECTION)
         )
         observation = [relative_goal_pos, goal_vector, turn_direction, goal_vector]
         return np.array(flatten_list(observation), dtype=np.float32)
@@ -191,7 +190,7 @@ class SumoLightEnv(BaseEnv):
         cur_lane_index = self.traci_connect.vehicle.getLaneIndex(vehID)
         directions = self._network.get_next_directions(cur_edgeID, cur_lane_index)
         turn_direction = list(
-            map(lambda direct: 1.0 if direct in directions else 0.0, DIRECTION)
+            map(lambda direct: 1.0 if direct in directions else 0.0, gc.DIRECTION)
         )
         goal_vector = list(self._goal[vehID]["direct"])
         observation = [relative_goal_pos, veh_vector, turn_direction, goal_vector]
@@ -205,9 +204,9 @@ class SumoLightEnv(BaseEnv):
             self._remove_car_if_necessary(vehID, True)
             return False
         future_speed = -1.0
-        if action > DIRECT_FLAG:
+        if action > gc.DIRECT_FLAG:
             cur_speed = self.traci_connect.vehicle.getSpeed(vehID)
-            accel_rate = ACCEL[action - DIRECT_FLAG - 1]
+            accel_rate = gc.ACCEL[action - gc.DIRECT_FLAG - 1]
             accel = self.traci_connect.vehicle.getAccel(vehID) * abs(accel_rate)
             decel = self.traci_connect.vehicle.getDecel(vehID) * abs(accel_rate) * -1.0
             future_accel = accel if accel_rate >= 0 else decel
@@ -217,8 +216,8 @@ class SumoLightEnv(BaseEnv):
             future_speed = future_speed if is_set_speed else 0.0
             self.traci_connect.vehicle.setSpeed(vehID, future_speed)
             self._remove_car_if_necessary(vehID, False)
-        pre_direction = self._vehID_list[vehID].get("want_turn_direct", DIRECTION[0])
-        direction = DIRECTION[action] if action <= DIRECT_FLAG else pre_direction
+        pre_direction = self._vehID_list[vehID].get("want_turn_direct", gc.DIRECTION[0])
+        direction = gc.DIRECTION[action] if action <= gc.DIRECT_FLAG else pre_direction
         self._vehID_list[vehID]["want_turn_direct"] = direction
         is_take = self._sumo_util.turn(
             vehID, self._vehID_list[vehID], direction, future_speed
