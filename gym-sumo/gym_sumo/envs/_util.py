@@ -6,6 +6,11 @@ import copy
 DEFAULT_RANDOM_STATE = np.random.RandomState(None)
 
 
+def calc_distance(from_pos, to_pos):
+    comlex_vector = _get_vector(from_pos, to_pos, True)
+    return abs(comlex_vector)
+
+
 def random_int_set(a, b, num, exclude=[], random_state=DEFAULT_RANDOM_STATE):
     """num random integer without duplication in the range from a to b
 

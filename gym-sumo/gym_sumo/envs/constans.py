@@ -31,7 +31,7 @@ DIRECTION_TEXT = ["STRAIGHT", "UTURN", "LEFT", "PAR_LEFT", "RIGHT", "PAR_RIGHT"]
 ACCEL_TEXT = ["LARGE ACCEL", "SMALL ACCEL", "LARGE DECEL", "SMALL DECEL"]
 
 DEFAULT_KWARGS_FIXED = {
-    "isgraph": True,
+    "isgraph": False,
     "area": 0,
     "carnum": 100,
     "mode": "gui",
@@ -57,7 +57,7 @@ DEFAULT_KWARGS_FIXED = {
 }
 
 DEFAULT_KWARGS_LIGHT = {
-    "isgraph": True,
+    "isgraph": False,
     "area": 0,
     "carnum": 100,
     "mode": "gui",
@@ -79,7 +79,7 @@ DEFAULT_KWARGS_LIGHT = {
 }
 
 DEFAULT_KWARGS_BASE = {
-    "isgraph": True,
+    "isgraph": False,
     "area": 0,
     "carnum": 100,
     "mode": "gui",

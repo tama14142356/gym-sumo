@@ -11,7 +11,7 @@ from gym_sumo.envs import route_data_save
 class SumoFixedEnv(LightEnv):
     def __init__(
         self,
-        isgraph=True,
+        isgraph=False,
         area=0,
         carnum=100,
         mode="gui",

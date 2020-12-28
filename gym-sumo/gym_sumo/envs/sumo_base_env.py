@@ -11,6 +11,7 @@ import tempfile
 # from IPython import embed  # for debug
 
 from ._graph import Graph
+from .sumo_graph import SumoGraph
 from ._util import random_tuple, get_base_vector
 from .sumo_util import SumoUtil
 from gym_sumo.envs import constans as gc
@@ -30,7 +31,7 @@ class SumoBaseEnv(gym.Env):
 
     def __init__(
         self,
-        isgraph=True,
+        isgraph=False,
         area=0,
         carnum=100,
         mode="gui",
@@ -83,8 +84,11 @@ class SumoBaseEnv(gym.Env):
         self._start_edge_list = []
         self._seed = seed
         self.seed(seed)
-        self._graph = Graph(self._netpath)
-        self._network = self._graph.sumo_network
+        if isgraph:
+            self._graph = Graph(self._netpath)
+            self._network = self._graph.sumo_network
+        else:
+            self._network = SumoGraph(self._netpath, withInternal=True)
         self._init_simulator(mode, step_length=step_length)
         self._sumo_util = SumoUtil(
             self._network, gc.DIRECTION, self.traci_connect, is_end, is_start
@@ -352,7 +356,7 @@ class SumoBaseEnv(gym.Env):
         is_random = self._is_random_route
         if is_random:
             return self._find_route_random(exclude, to_edgeID)
-        num_edge = self._graph.get_num("edge_normal") - 1
+        num_edge = self._network.get_edge_num()
         if to_edgeID == "":
             from_edge_index, to_edge_index = random_tuple(
                 0, num_edge, 2, self._start_edge_list, exclude, self.np_random
@@ -394,7 +398,7 @@ class SumoBaseEnv(gym.Env):
         return is_find, edges, route_info, route_edges
 
     def _find_route_random(self, exclude=[], to_edgeID=""):
-        num_edge = self._graph.get_num("edge_normal") - 1
+        num_edge = self._network.get_edge_num() - 1
         is_length = self.is_length
         is_abs_length = self.is_abs_length
         is_road_num = self.is_road_num

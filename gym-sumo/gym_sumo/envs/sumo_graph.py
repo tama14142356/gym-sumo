@@ -31,6 +31,9 @@ class SumoGraph:
         all_edge_list = self.get_all_edge_list(with_internal)
         return list(map(lambda edge: edge.getID(), all_edge_list))
 
+    def get_edge_num(self, with_internal=False):
+        return len(self.get_all_edgeID_list(with_internal))
+
     def get_edge_obj(self, edgeID):
         if not self.network.hasEdge(edgeID):
             return None

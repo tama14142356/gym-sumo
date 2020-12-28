@@ -1,5 +1,5 @@
 from .sumo_base_env import SumoBaseEnv as BaseEnv
-from ._util import vector_decomposition, flatten_list, get_base_vector
+from ._util import vector_decomposition, flatten_list, get_base_vector, calc_distance
 import gym_sumo.envs.constans as gc
 
 # from IPython import embed  # for debug
@@ -12,7 +12,7 @@ from traci import constants as tc
 class SumoLightEnv(BaseEnv):
     def __init__(
         self,
-        isgraph=True,
+        isgraph=False,
         area=0,
         carnum=100,
         mode="gui",
@@ -73,7 +73,7 @@ class SumoLightEnv(BaseEnv):
             pos = self.traci_connect.vehicle.getPosition(vehID)
             route_target_edgeID = self._sumo_util.get_target(vehID=vehID)
         goal_pos = self._goal[vehID].get("pos", [0.0, 0.0])
-        pre_to_goal_length = self._graph._calc_distance(pos, goal_pos)
+        pre_to_goal_length = calc_distance(pos, goal_pos)
         is_take = True
         if not self._is_auto:
             is_take = self._take_action(vehID, action)
@@ -113,9 +113,7 @@ class SumoLightEnv(BaseEnv):
                 reward += 100.0 if is_arrived else 0.0
             else:
                 # progress bonus
-                to_goal_length = self._graph._calc_distance(
-                    info["pos"], self._goal[vehID]["pos"]
-                )
+                to_goal_length = calc_distance(info["pos"], self._goal[vehID]["pos"])
                 dense_reward = pre_to_goal_length - to_goal_length
                 reward += dense_reward * 0.01
                 if not is_take:
