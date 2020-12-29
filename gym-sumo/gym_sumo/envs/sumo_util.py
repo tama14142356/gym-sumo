@@ -2,14 +2,14 @@ import copy
 
 from gym_sumo.envs.route_data_save import get_pos_edgeID, convert_pos, get_def_len
 from gym_sumo.envs._util import _get_vector
+from gym_sumo.envs import constans as gc
 
 # from IPython import embed  # for debug
 
 
 class SumoUtil:
-    def __init__(self, sumo_network, direction_list, traci_connect, is_end, is_start):
+    def __init__(self, sumo_network, traci_connect, is_end, is_start):
         self._network = sumo_network
-        self._direction_list = direction_list
         self.traci_connect = traci_connect
         self._step_length = self.traci_connect.simulation.getDeltaT()
         self.is_end = is_end
@@ -57,7 +57,7 @@ class SumoUtil:
         is_junction = self._is_junction(vehID)
         is_start = self._is_start(vehID)
         if not is_junction or is_start:
-            return self._direction_list[0]
+            return gc.DIRECTION[0]
         route = self.traci_connect.vehicle.getRoute(vehID)
         route_index = self.traci_connect.vehicle.getRouteIndex(vehID) + 1
         cur_edgeID = self.traci_connect.vehicle.getRoadID(vehID)

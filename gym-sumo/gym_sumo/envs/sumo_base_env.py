@@ -90,9 +90,7 @@ class SumoBaseEnv(gym.Env):
         else:
             self._network = SumoGraph(self._netpath, withInternal=True)
         self._init_simulator(mode, step_length=step_length)
-        self._sumo_util = SumoUtil(
-            self._network, gc.DIRECTION, self.traci_connect, is_end, is_start
-        )
+        self._sumo_util = SumoUtil(self._network, self.traci_connect, is_end, is_start)
         self._add_all_car()
 
     def initiallize_list(self, is_fix_target=True):
