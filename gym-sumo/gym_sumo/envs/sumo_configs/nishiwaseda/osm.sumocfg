@@ -22,7 +22,6 @@
         <verbose value="false"/>
         <duration-log.statistics value="false"/>
         <no-step-log value="true"/>
-        <no-warnings value="true"/>
     </report>
 
     <gui_only>
