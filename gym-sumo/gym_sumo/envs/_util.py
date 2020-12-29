@@ -6,23 +6,6 @@ import copy
 DEFAULT_RANDOM_STATE = np.random.RandomState(None)
 
 
-def string_extract_int(target_string):
-    """extract index from target string
-
-    Args:
-        target_string (str): string which is extracted interger from
-
-    Returns:
-        int: index of target, if target string hasn't index, -1
-    """
-    length = len(target_string)
-    for i in range(length):
-        tmp = target_string[i:]
-        if tmp.isdecimal():
-            return int(tmp)
-    return -1
-
-
 def random_int_set(a, b, num, exclude=[], random_state=DEFAULT_RANDOM_STATE):
     """num random integer without duplication in the range from a to b
 
