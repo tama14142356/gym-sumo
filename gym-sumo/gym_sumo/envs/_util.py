@@ -6,6 +6,23 @@ import copy
 DEFAULT_RANDOM_STATE = np.random.RandomState(None)
 
 
+def string_extract_int(target_string):
+    """extract index from target string
+
+    Args:
+        target_string (str): string which is extracted interger from
+
+    Returns:
+        int: index of target, if target string hasn't index, -1
+    """
+    length = len(target_string)
+    for i in range(length):
+        tmp = target_string[i:]
+        if tmp.isdecimal():
+            return int(tmp)
+    return -1
+
+
 def random_int_set(a, b, num, exclude=[], random_state=DEFAULT_RANDOM_STATE):
     """num random integer without duplication in the range from a to b
 
@@ -179,29 +196,27 @@ def _get_vector(start_pos, target_pos, is_complex=False):
     Returns:
         numpy.ndarray or complex: vector from start_pos to target_pos
     """
-    start = np.array(start_pos, dtype=np.float)
-    target = np.array(target_pos, dtype=np.float)
+    start = np.array(start_pos)
+    target = np.array(target_pos)
     vector = target - start
     if is_complex:
         return complex(vector[0], vector[1])
     return vector
 
 
-def get_base_vector(start_pos, target_pos, norm=1.0, is_complex=False):
+def get_base_vector(start_pos, target_pos, norm=1.0):
     """create vector from start_pos to target_pos whose norm is norm
 
     Args:
         start_pos (numpy.ndarray or list or tuple): start vector
         target_pos (numpy.ndarray or list or tuple): end vector
         norm (float, optional): vector's norm. Defaults to 1.0.
-        is_complex (bool, optional): type of vector is wether complex is or not.
-                                     Defaults to False.
 
     Returns:
-        numpy.ndarray or complex: vector from start_pos to target_pos whose norm is norm
+        numpy.ndarray: vector from start_pos to target_pos whose norm is norm
     """
-    vector = _get_vector(start_pos, target_pos, is_complex)
-    vector_norm = abs(vector) if is_complex else np.linalg.norm(vector, ord=2)
+    vector = _get_vector(start_pos, target_pos)
+    vector_norm = np.linalg.norm(vector, ord=2)
     base_vector = vector / vector_norm
     ans_vector = base_vector * np.sqrt(norm)
     return ans_vector
@@ -219,7 +234,7 @@ def get_base_angle(angle):
     abs_angle = abs(angle)
     n = int(abs_angle // 360)
     abs_base_angle = abs_angle - float(360 * n)
-    base_angle = abs_base_angle if angle >= 0.0 else 360.0 - abs_base_angle
+    base_angle = abs_base_angle if angle >= 0.0 else abs_base_angle + 360.0
     return base_angle
 
 
@@ -251,42 +266,11 @@ def vector_decomposition(vector_length, angle):
         0 degree line: the positive y-axis direction
         direction of declinate: clockwise
     """
-    normal_angle = get_normal_angle(angle, [0, 1], -1)
-    base_radian = np.deg2rad(normal_angle)
-    v_x = vector_length * np.cos(base_radian)
-    v_y = vector_length * np.sin(base_radian)
-    return v_x, v_y
-
-
-def get_normal_angle(angle, pre_std, pre_std_direct, new_std=[1, 0], new_std_direct=1):
-    """get angle after change starndar direction, direction of declinate
-
-    Args:
-        angle (float): target angle to change standard
-        pre_std (list of tuple or numpy.ndarray): previous standard direction
-        pre_std_direct (int): previous direction of declinate
-        new_std (list or tuple or numpy.ndarray, optional): new standard direction.
-                                                            Defaults to [1, 0].
-        new_std_direct (int, optional): new standard direction of declinate.
-                                        Defaults to 1.
-                                        1 -> counterclockwise
-                                        other -> clockwise
-    Returns:
-        float: angle after change standard in [0, 360)
-    """
     base_angle = get_base_angle(angle)
-    new_std_complex = get_base_vector([0, 0], new_std, is_complex=True)
-    pre_std_complex = get_base_vector([0, 0], pre_std, is_complex=True)
-    if pre_std_complex == new_std_complex and pre_std_direct == new_std_direct:
-        return base_angle
-    if pre_std_direct != new_std_direct:
-        base_angle = get_base_angle(-base_angle)
-    new_std_angle = np.angle(new_std_complex, deg=True)
-    pre_std_angle = np.angle(pre_std_complex, deg=True)
-    angle_new_to_pre = pre_std_angle - new_std_angle
-    if new_std_direct == 1:
-        return get_base_angle(angle_new_to_pre + base_angle)
-    return get_base_angle(360.0 - angle_new_to_pre + base_angle)
+    base_radian = np.deg2rad(base_angle)
+    v_y = vector_length * np.cos(base_radian)
+    v_x = vector_length * np.sin(base_radian)
+    return v_x, v_y
 
 
 def get_degree(start_pos, target_pos):
@@ -383,3 +367,11 @@ def in_many_shape(rect, target):
     point = Point(target)
     polygon = Polygon(rect)
     return polygon.contains(point)
+
+
+if __name__ == "__main__":
+    index = string_extract_int("veh0")
+    index2 = string_extract_int("veh100")
+    index3 = string_extract_int("rl0k")
+    index4 = string_extract_int("lll")
+    print(index, index2, index3, index4)
