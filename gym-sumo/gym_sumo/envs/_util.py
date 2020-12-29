@@ -6,23 +6,6 @@ import copy
 DEFAULT_RANDOM_STATE = np.random.RandomState(None)
 
 
-def string_extract_int(target_string):
-    """extract index from target string
-
-    Args:
-        target_string (str): string which is extracted interger from
-
-    Returns:
-        int: index of target, if target string hasn't index, -1
-    """
-    length = len(target_string)
-    for i in range(length):
-        tmp = target_string[i:]
-        if tmp.isdecimal():
-            return int(tmp)
-    return -1
-
-
 def random_int_set(a, b, num, exclude=[], random_state=DEFAULT_RANDOM_STATE):
     """num random integer without duplication in the range from a to b
 
@@ -367,11 +350,3 @@ def in_many_shape(rect, target):
     point = Point(target)
     polygon = Polygon(rect)
     return polygon.contains(point)
-
-
-if __name__ == "__main__":
-    index = string_extract_int("veh0")
-    index2 = string_extract_int("veh100")
-    index3 = string_extract_int("rl0k")
-    index4 = string_extract_int("lll")
-    print(index, index2, index3, index4)

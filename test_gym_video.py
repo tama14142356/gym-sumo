@@ -19,7 +19,7 @@ direction = base.DIRECTION
 kwargs = {
     "step_length": 1,
     "mode": "gui",
-    "carnum": 2,
+    "carnum": 1,
     "seed": 5,
     # "debug_view": True,
 }
