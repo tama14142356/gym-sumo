@@ -1,4 +1,5 @@
 import sumolib
+from ._util import flatten_list
 
 
 class SumoGraph:
@@ -30,10 +31,45 @@ class SumoGraph:
         all_edge_list = self.get_all_edge_list(with_internal)
         return list(map(lambda edge: edge.getID(), all_edge_list))
 
+    def get_edge_num(self, with_internal=False):
+        return len(self.get_all_edgeID_list(with_internal))
+
     def get_edge_obj(self, edgeID):
         if not self.network.hasEdge(edgeID):
             return None
         return self.network.getEdge(edgeID)
+
+    def get_road_length(self, edgeID="", laneID=""):
+        edge_obj = self.get_edge_obj(edgeID)
+        if edge_obj is None:
+            lane_obj = self.network.getLane(laneID)
+            edge_obj = lane_obj.getEdge()
+        return edge_obj.getLength()
+
+    def get_road_speed(self, edgeID="", laneID=""):
+        edge_obj = self.get_edge_obj(edgeID)
+        if edge_obj is None:
+            lane_obj = self.network.getLane(laneID)
+            edge_obj = lane_obj.getEdge()
+        return edge_obj.getSpeed()
+
+    def get_road_travel_time(self, edgeID="", laneID=""):
+        speed = self.get_road_speed(edgeID, laneID)
+        length = self.get_road_length(edgeID, laneID)
+        travel_time = length / speed
+        return travel_time
+
+    def get_laneIDs(self, edgeID):
+        edge_obj = self.get_edge_obj(edgeID)
+        if edge_obj is None:
+            return []
+        return [lane_obj.getID() for lane_obj in edge_obj.getLanes()]
+
+    def get_lane_number(self, edgeID):
+        edge_obj = self.get_edge_obj(edgeID)
+        if edge_obj is None:
+            return -1
+        return edge_obj.getLaneNumber()
 
     def get_edgeID(self, edge_index, is_normal=True):
         all_edgeID_list = self.get_all_edgeID_list((not is_normal))
@@ -63,6 +99,9 @@ class SumoGraph:
         # is_special = edge_obj.isSpecial()
         is_internal = edge_obj.getFunction() == "internal"
         return is_internal
+
+    def remove_internal_edge(self, edgeID_list):
+        return [e for e in edgeID_list if not self.is_internal_edgeID(e)]
 
     def get_all_node_dict(self):
         return self.network.getNodes()
@@ -119,9 +158,20 @@ class SumoGraph:
                 next_edge_dict[next_edge_obj] = tmp
         return next_edge_dict
 
-    def get_next_edgeIDs(self, cur_edgeID, cur_lane_index=0):
-        next_edge_dict = self.get_next_edge_dict(cur_edgeID, cur_lane_index)
-        return list(map(lambda element: element.getID(), next_edge_dict))
+    def get_next_edgeIDs(self, cur_edgeID, cur_lane_index=-1, is_normal=True):
+        lane_num = self.get_lane_number(cur_edgeID)
+        if lane_num == -1:
+            return []
+        next_edgeID_list = []
+        for lane_index in range(lane_num):
+            if cur_lane_index == lane_index or cur_lane_index == -1:
+                next_edge_dict = self.get_next_edge_dict(cur_edgeID, lane_index)
+                next_edgeID_list.append([element.getID() for element in next_edge_dict])
+        next_edgeID_list = list(set(flatten_list(next_edgeID_list)))
+        next_edgeID_list = self.remove_internal_edge(next_edgeID_list)
+        if is_normal:
+            return self.remove_internal_edge(next_edgeID_list)
+        return next_edgeID_list
 
     def get_next_directions(self, cur_edgeID, cur_lane_index=0):
         next_edge_dict = self.get_next_edge_dict(cur_edgeID, cur_lane_index)
@@ -235,9 +285,20 @@ class SumoGraph:
                 from_edge_dict[from_edge_obj] = tmp
         return from_edge_dict
 
-    def get_from_edgeIDs(self, cur_edgeID, cur_lane_index=0):
-        from_edge_dict = self.get_from_edge_dict(cur_edgeID, cur_lane_index)
-        return list(map(lambda element: element.getID(), from_edge_dict))
+    def get_from_edgeIDs(self, cur_edgeID, cur_lane_index=-1, is_normal=True):
+        lane_num = self.get_lane_number(cur_edgeID)
+        if lane_num == -1:
+            return []
+        from_edgeID_list = []
+        for lane_index in range(lane_num):
+            if cur_lane_index == lane_index or cur_lane_index == -1:
+                from_edge_dict = self.get_from_edge_dict(cur_edgeID, lane_index)
+                from_edgeID_list.append([element.getID() for element in from_edge_dict])
+        from_edgeID_list = list(set(flatten_list(from_edgeID_list)))
+        from_edgeID_list = self.remove_internal_edge(from_edgeID_list)
+        if is_normal:
+            return self.remove_internal_edge(from_edgeID_list)
+        return from_edgeID_list
 
     def get_from_directions(self, cur_edgeID, cur_lane_index=0):
         from_edge_dict = self.get_from_edge_dict(cur_edgeID, cur_lane_index)

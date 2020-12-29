@@ -8,7 +8,7 @@ import torch
 from torch_geometric.data import Data
 from torch_geometric.utils import to_networkx
 
-from gym_sumo.envs._util import flatten_list
+from gym_sumo.envs._util import flatten_list, calc_distance
 from gym_sumo.envs.sumo_graph import SumoGraph
 
 # category variable(one hot encoding)
@@ -119,7 +119,7 @@ class Graph:
             speed = 0.0 if cur_edge_index < 0 else tmp[cur_edge_index][0]
             # calculation edge(veh->tonode) length
             to_pos = self._graph.pos.numpy()[to_node_index]
-            length = self._calc_distance(np.array(pos_info), to_pos)
+            length = calc_distance(np.array(pos_info), to_pos)
             category_val = NONE_ROAD_CATEGORY if cur_edge_index < 0 else ROAD_CATEGORY
             category = EDGE_CATEGORY[category_val]
             edge_attr_info = flatten_list([speed, length, category])
@@ -165,11 +165,6 @@ class Graph:
         if len(edge_attr_info) > 0:
             tmp_edge_attr_list.append(edge_attr_info)
             self._graph.edge_attr = torch.tensor(tmp_edge_attr_list, dtype=torch.float)
-
-    def _calc_distance(self, from_pos, to_pos):
-        return float(
-            np.sqrt((to_pos[0] - from_pos[0]) ** 2 + (to_pos[1] - from_pos[1]) ** 2)
-        )
 
     def _get_feature_node(self, nodeID):
         speed = 0.0
