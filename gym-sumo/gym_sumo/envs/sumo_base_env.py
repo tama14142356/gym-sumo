@@ -354,7 +354,7 @@ class SumoBaseEnv(gym.Env):
         is_random = self._is_random_route
         if is_random:
             return self._find_route_random(exclude, to_edgeID)
-        num_edge = self._network.get_edge_num()
+        num_edge = self._network.get_edge_num() - 1
         if to_edgeID == "":
             from_edge_index, to_edge_index = random_tuple(
                 0, num_edge, 2, self._start_edge_list, exclude, self.np_random
