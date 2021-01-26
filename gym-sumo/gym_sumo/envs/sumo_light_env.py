@@ -49,6 +49,7 @@ class SumoLightEnv(BaseEnv):
             is_road_num,
             is_end,
             is_start,
+            is_auto,
         )
         # 6action and accel, brake
         self.action_text = gc.DIRECTION_TEXT + gc.ACCEL_TEXT

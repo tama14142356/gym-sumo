@@ -47,6 +47,7 @@ class SumoBaseEnv(gym.Env):
         is_road_num=False,
         is_end=True,
         is_start=False,
+        is_auto=False,
     ):
         super().__init__()
         sumo_config = "sumo_configs/" + gc.AREA[area]
@@ -91,7 +92,8 @@ class SumoBaseEnv(gym.Env):
             self._network = SumoGraph(self._netpath, withInternal=True)
         self._init_simulator(mode, step_length=step_length)
         self._sumo_util = SumoUtil(self._network, self.traci_connect, is_end, is_start)
-        self._add_all_car()
+        if not is_auto:
+            self._add_all_car()
 
     def initiallize_list(self, is_fix_target=True):
         self._vehID_list.clear()

@@ -57,23 +57,33 @@ class SumoFixedEnv(LightEnv):
             is_auto,
         )
         self.fixed_veh_index = fixed_veh_index
-        self.fixed_vehID = list(self._vehID_list)[fixed_veh_index]
+        # self.fixed_vehID = list(self._vehID_list)[fixed_veh_index]
+        self.fixed_vehID = "veh{}".format(fixed_veh_index)
         self._cur_data_index = 0
         def_len = route_data_save.get_def_len(is_end, is_start)
         route_data_dir = route_data_save.get_dir_path(max_data, def_len, route_length)
         route_data = route_data_save.route_data_load(route_data_dir)
         if self._is_random_route:
             self.np_random.shuffle(route_data)
-        self.route_data = route_data[:data_num]
+        self.route_data = route_data
         self._data_num = data_num
-        self._add_or_reposition_fix_car()
+        if not is_auto:
+            self._add_or_reposition_fix_car(self.fixed_veh_index)
+        else:
+            self.add_all_car()
 
-    def _add_or_reposition_fix_car(self):
-        vehID = self.fixed_vehID
+    def add_all_car(self):
+        for index in range(self._carnum):
+            self._add_or_reposition_fix_car(index)
+            self._cur_data_index += 1
+            self._cur_data_index %= self._data_num
+
+    def _add_or_reposition_fix_car(self, index):
+        vehID = "veh{}".format(index)
         if vehID in self.traci_connect.vehicle.getIDList():
             self.traci_connect.vehicle.remove(vehID, tc.REMOVE_TELEPORT)
             self.traci_connect.simulationStep()
-        routeID, route, route_info, is_find = self._generate_fix_route()
+        routeID, route, route_info, is_find = self._generate_fix_route(index)
         self.traci_connect.route.add(routeID, route)
         self._route_list[routeID] = route_info
         self.traci_connect.vehicle.add(vehID, routeID)
@@ -89,9 +99,10 @@ class SumoFixedEnv(LightEnv):
         self.traci_connect.simulationStep()
         self._reset_simulate_time()
 
-    def _generate_fix_route(self):
-        index = self.fixed_veh_index
-        vehID = self.fixed_vehID
+    def _generate_fix_route(self, index):
+        # index = self.fixed_veh_index
+        # vehID = self.fixed_vehID
+        vehID = "veh{}".format(index)
         routeID = "route{}".format(index)
         routeID_list = self.traci_connect.route.getIDList()
         if routeID in routeID_list:
@@ -114,7 +125,12 @@ class SumoFixedEnv(LightEnv):
             self.initiallize_list()
             self._cur_data_index += 1
             self._cur_data_index %= self._data_num
-            self._add_or_reposition_fix_car()
+            if not self._is_auto:
+                self._add_or_reposition_fix_car(self.fixed_veh_index)
+            else:
+                self.add_all_car()
+            if self._is_random_route:
+                self.np_random.shuffle(self.route_data)
         self.is_init = False
         if self._mode == "gui":
             viewID = self.traci_connect.gui.DEFAULT_VIEW

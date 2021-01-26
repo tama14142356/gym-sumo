@@ -14,7 +14,7 @@ def main(episode, is_msg=True, monitor=True, outdir="./video"):
     kwargs = {
         "step_length": 1,
         "mode": mode,
-        "carnum": 1,
+        "carnum": 10,
         "seed": 5,
         # "debug_view": True,
         "is_random_route": False,  # for debug
