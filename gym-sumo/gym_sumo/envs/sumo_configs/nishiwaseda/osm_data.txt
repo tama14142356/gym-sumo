@@ -1,0 +1,63 @@
+# netccfg内のosmNetconvert.typ.xmlへのパスは/home/tomo/sumo_proj/sumo/data/typemap/osmNetconvert.typ.xmlに変更して実行
+# 2021/01/16作成 netconvert -c osm.netccfgコマンドの実行結果を以下に表示
+
+Loading configuration ... done.
+Parsing types from '/home/tomo/sumo_proj/sumo/data/typemap/osmNetconvert.typ.xml' ... done.
+Parsing nodes from osm-file 'gym-sumo/gym_sumo/envs/sumo_configs/nishiwaseda/osm_bbox.osm.xml' ...
+Found and substituted 5 osm nodes.
+done.
+Parsing edges from osm-file 'gym-sumo/gym_sumo/envs/sumo_configs/nishiwaseda/osm_bbox.osm.xml' ... done.
+Removing duplicate edges ... done.
+Parsing relations from osm-file 'gym-sumo/gym_sumo/envs/sumo_configs/nishiwaseda/osm_bbox.osm.xml' ...
+done.
+ Removed 59 traffic lights before loading plain-XML
+ Import done:
+   1259 nodes loaded.
+   33 types loaded.
+   1446 edges loaded.
+Proj projection parameters used: '+proj=utm +zone=54 +ellps=WGS84 +datum=WGS84 +units=m +no_defs'.
+Removing self-loops ... done (0ms).
+Joining junction clusters ...
+done (5ms).
+ Joined 44 junction cluster(s).
+Removing empty nodes and geometry nodes ... done (4ms).
+   809 nodes removed.
+Moving network to origin ... done (11ms).
+Computing turning directions ...
+done (1ms).
+Assigning nodes to traffic lights ... done (1ms).
+Guessing and setting on-/off-ramps ... done (1ms).
+Sorting nodes' edges ... done (1ms).
+Computing node shapes ... done (13ms).
+Computing edge shapes ... done (8ms).
+Computing node types ... done (1ms).
+Computing priorities ... done (1ms).
+Computing approached edges ... done (1ms).
+Guessing and setting roundabouts ... done (1ms).
+Computing approaching lanes ... done (4ms).
+Dividing of lanes on approached lanes ... done (3ms).
+Processing turnarounds ... done (1ms).
+Rechecking of lane endings ... done (1ms).
+Joining traffic light nodes ... done (0ms).
+Computing traffic light control information ... done (1ms).
+Computing node logics ... done (8ms).
+Computing traffic light logics ...
+done (2ms).
+ 20 traffic light(s) computed.
+Building inner edges ...
+done (22ms).
+-----------------------------------------------------
+Summary:
+ Node type statistics:
+  Unregulated junctions       : 0
+  Dead-end junctions          : 22
+  Priority junctions          : 353
+  Right-before-left junctions : 4
+  Traffic light junctions      : 21
+ Network boundaries:
+  Original boundary  : 139.67,35.66,139.78,35.73
+  Applied offset     : -381960.93,3951189.10
+  Converted boundary : 0.00,-1694.52,2312.98,0.00
+-----------------------------------------------------
+Writing network ... done (141ms).
+Success.
