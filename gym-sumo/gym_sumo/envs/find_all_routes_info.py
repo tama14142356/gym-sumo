@@ -26,25 +26,21 @@ import numpy as np
 import sumolib
 
 from tqdm import tqdm
-import pathlib
 from gym_sumo.envs import constans as gc
 
 # from IPython import embed
 
 
 AREA = gc.AREA
-CONFIG_RELATIVE_PATH = "sumo_configs/"
+CONFIG_ABS_PATH = gc.CONFIG_ABS_PATH
+CONFIG_DEFAULT_ABS_PATH = CONFIG_ABS_PATH / AREA[0]
+
 SUMO_NET_EXTEND = ".net.xml"
 SUMO_CONFIG_EXTEND = ".sumocfg"
 SUMO_ROUTE_EXTEND = ".rou.xml"
 SUMO_DEFAULT_NET_FILENAME = "osm.net.xml"
 SUMO_DEFAULT_ROUTE_FILENAME = "osm.rou.xml"
 
-CWD_PATH = pathlib.os.path.dirname(__file__)
-CONFIG_DEFAULT_AREA = CONFIG_RELATIVE_PATH + AREA[0]
-CONFIG_DEFAULT_ABS_PATH = pathlib.Path(
-    pathlib.os.path.join(CWD_PATH, CONFIG_DEFAULT_AREA)
-).resolve()
 NET_DEAFULT_FILE_PATH = CONFIG_DEFAULT_ABS_PATH / SUMO_DEFAULT_NET_FILENAME
 ROUTE_DEAFULT_FILE_PATH = CONFIG_DEFAULT_ABS_PATH / SUMO_DEFAULT_ROUTE_FILENAME
 

@@ -1,3 +1,11 @@
+import pathlib
+
+CWD_PATH = pathlib.os.path.dirname(__file__)
+CONFIG_RELATIVE_PATH = "sumo_configs/"
+CONFIG_ABS_PATH = pathlib.Path(
+    pathlib.os.path.join(CWD_PATH, CONFIG_RELATIVE_PATH)
+).resolve()
+
 AREA = ["nishiwaseda", "waseda_university"]
 # max length for route length
 MAX_LENGTH = 1000.0
